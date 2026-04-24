@@ -18,8 +18,6 @@ from dotenv import load_dotenv
 # Ambil variabel dari file .env
 load_dotenv()
 
-# Ganti SECRET_KEY bawaan
-SECRET_KEY = os.getenv('SECRET_KEY')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
