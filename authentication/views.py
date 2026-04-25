@@ -51,21 +51,23 @@ def register_view(request):
 
                 role = data.get('role')
                 if role == 'member':
-                    # Auto-increment dari DB, bukan random
-                    cursor.execute("SELECT nomor_member FROM member ORDER BY nomor_member DESC LIMIT 1")
-                    last = cursor.fetchone()
-                    next_num = int(last[0][1:]) + 1 if last else 1
-                    nomor_member = f"M{next_num:04d}"
+                    with connection.cursor() as c1:
+                        c1.execute("SELECT nomor_member FROM member ORDER BY nomor_member DESC LIMIT 1")
+                        last = c1.fetchone()
+                        next_num = int(last[0][1:]) + 1 if last else 1
+                        nomor_member = f"M{next_num:04d}"
+                    with connection.cursor() as c2:
+                        c2.execute("SELECT id_tier FROM tier ORDER BY minimal_tier_miles ASC LIMIT 1")
+                        tier_row = c2.fetchone()
+                        id_tier = tier_row[0] if tier_row else None
 
-                    # Ambil tier terendah
-                    cursor.execute("SELECT id_tier FROM tier ORDER BY minimal_tier_miles ASC LIMIT 1")
-                    tier_row = cursor.fetchone()
-                    id_tier = tier_row[0] if tier_row else 'T01'
+                    print(f"DEBUG: email={email}, nomor={nomor_member}, tier={id_tier}") #buat debugging
 
-                    cursor.execute("""
-                        INSERT INTO member (email, nomor_member, tanggal_bergabung, id_tier, award_miles, total_miles)
-                        VALUES (%s, %s, CURRENT_DATE, %s, 0, 0)
-                    """, [email, nomor_member, id_tier])
+                    with connection.cursor() as c3:
+                        c3.execute("""
+                            INSERT INTO member (email, nomor_member, tanggal_bergabung, id_tier, award_miles, total_miles)
+                            VALUES (%s, %s, CURRENT_DATE, %s, 0, 0)
+                        """, [email, nomor_member, id_tier])
 
                 else:  # staf
                     cursor.execute("SELECT id_staf FROM staf ORDER BY id_staf DESC LIMIT 1")
