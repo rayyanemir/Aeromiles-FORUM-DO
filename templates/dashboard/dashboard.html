@@ -1,0 +1,420 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-header {
+        margin-bottom: 2rem;
+    }
+
+    .dashboard-header h1 {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--white);
+    }
+
+    .dashboard-header p {
+        color: var(--muted);
+        font-size: 0.95rem;
+        margin-top: 0.25rem;
+    }
+
+    /* GRID LAYOUT */
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 340px 1fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    @media (max-width: 900px) {
+        .dashboard-grid { grid-template-columns: 1fr; }
+    }
+
+    /* CARD */
+    .card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        padding: 1.5rem;
+    }
+
+    .card-title {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        margin-bottom: 1.25rem;
+    }
+
+    /* PROFILE CARD */
+    .profile-avatar {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--sky), var(--blue));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        font-family: 'Syne', sans-serif;
+        font-weight: 700;
+        color: white;
+        margin-bottom: 1rem;
+    }
+
+    .profile-name {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--white);
+        margin-bottom: 0.2rem;
+    }
+
+    .profile-email {
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .profile-divider {
+        border: none;
+        border-top: 1px solid rgba(255,255,255,0.07);
+        margin: 1rem 0;
+    }
+
+    .profile-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.45rem 0;
+        font-size: 0.875rem;
+    }
+
+    .profile-row .label {
+        color: var(--muted);
+    }
+
+    .profile-row .value {
+        color: var(--white);
+        font-weight: 500;
+        text-align: right;
+    }
+
+    /* MILES CARD (member) */
+    .miles-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .miles-box {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 12px;
+        padding: 1.1rem;
+    }
+
+    .miles-box .miles-label {
+        font-size: 0.75rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        margin-bottom: 0.4rem;
+    }
+
+    .miles-box .miles-value {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--accent);
+    }
+
+    .miles-box .miles-unit {
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-top: 0.1rem;
+    }
+
+    /* TIER BADGE */
+    .tier-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(245,166,35,0.12);
+        border: 1px solid rgba(245,166,35,0.25);
+        color: var(--accent-light);
+        padding: 0.4rem 0.9rem;
+        border-radius: 20px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        font-family: 'Syne', sans-serif;
+        margin-bottom: 1.25rem;
+    }
+
+    /* TRANSAKSI TABLE */
+    .tx-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+
+    .tx-table th {
+        text-align: left;
+        color: var(--muted);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        font-weight: 500;
+        padding: 0 0.75rem 0.75rem;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .tx-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        color: var(--white);
+        vertical-align: middle;
+    }
+
+    .tx-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .tx-badge {
+        display: inline-block;
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .tx-badge.keluar {
+        background: rgba(255,107,107,0.12);
+        color: #ff9999;
+    }
+
+    .tx-badge.masuk {
+        background: rgba(80,200,120,0.12);
+        color: #7debb0;
+    }
+
+    .tx-badge.redeem {
+        background: rgba(245,166,35,0.12);
+        color: var(--accent-light);
+    }
+
+    .tx-badge.package {
+        background: rgba(47,123,234,0.12);
+        color: #82b4f5;
+    }
+
+    .tx-badge.klaim {
+        background: rgba(160,120,255,0.12);
+        color: #c9b0ff;
+    }
+
+    .tx-empty {
+        text-align: center;
+        color: var(--muted);
+        padding: 2rem;
+        font-size: 0.875rem;
+    }
+
+    /* STAF STATS */
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-box {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 12px;
+        padding: 1.1rem;
+        text-align: center;
+    }
+
+    .stat-box .stat-num {
+        font-family: 'Syne', sans-serif;
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-box .stat-num.warning { color: var(--accent); }
+    .stat-box .stat-num.success { color: #7debb0; }
+    .stat-box .stat-num.danger  { color: #ff9999; }
+
+    .stat-box .stat-label {
+        font-size: 0.78rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>Dashboard</h1>
+    <p>Selamat datang kembali, {{ pengguna.nama_lengkap }}</p>
+</div>
+
+<div class="dashboard-grid">
+
+    <!-- ── KOLOM KIRI: PROFIL ── -->
+    <div>
+        <div class="card">
+            <div class="card-title">Profil Saya</div>
+
+            <div class="profile-avatar">
+                {{ pengguna.first_mid_name|first|upper }}
+            </div>
+            <div class="profile-name">{{ pengguna.nama_lengkap }}</div>
+            <div class="profile-email">{{ pengguna.email }}</div>
+
+            {% if role == 'member' %}
+                <div class="tier-badge">⭐ {{ member.tier }}</div>
+                <div class="profile-row">
+                    <span class="label">Nomor Member</span>
+                    <span class="value">{{ member.nomor_member }}</span>
+                </div>
+                <div class="profile-row">
+                    <span class="label">Bergabung</span>
+                    <span class="value">{{ member.tanggal_bergabung }}</span>
+                </div>
+            {% elif role == 'staf' %}
+                <div class="profile-row">
+                    <span class="label">ID Staf</span>
+                    <span class="value">{{ staf.id_staf }}</span>
+                </div>
+                <div class="profile-row">
+                    <span class="label">Maskapai</span>
+                    <span class="value">{{ staf.nama_maskapai }}</span>
+                </div>
+            {% endif %}
+
+            <hr class="profile-divider">
+
+            <div class="profile-row">
+                <span class="label">Nomor HP</span>
+                <span class="value">{{ pengguna.country_code }} {{ pengguna.mobile_number }}</span>
+            </div>
+            <div class="profile-row">
+                <span class="label">Kewarganegaraan</span>
+                <span class="value">{{ pengguna.kewarganegaraan }}</span>
+            </div>
+            <div class="profile-row">
+                <span class="label">Tanggal Lahir</span>
+                <span class="value">{{ pengguna.tanggal_lahir }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── KOLOM KANAN ── -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+
+        {% if role == 'member' %}
+            <!-- Miles Summary -->
+            <div class="card">
+                <div class="card-title">Miles Saya</div>
+                <div class="miles-grid">
+                    <div class="miles-box">
+                        <div class="miles-label">Total Miles</div>
+                        <div class="miles-value">{{ member.total_miles|default:0 }}</div>
+                        <div class="miles-unit">miles</div>
+                    </div>
+                    <div class="miles-box">
+                        <div class="miles-label">Award Miles</div>
+                        <div class="miles-value">{{ member.award_miles|default:0 }}</div>
+                        <div class="miles-unit">miles</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Riwayat Transaksi -->
+            <div class="card">
+                <div class="card-title">5 Transaksi Terbaru</div>
+                {% if transaksi %}
+                    <table class="tx-table">
+                        <thead>
+                            <tr>
+                                <th>Tipe</th>
+                                <th>Keterangan</th>
+                                <th>Miles</th>
+                                <th>Waktu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tx in transaksi %}
+                            <tr>
+                                <td>
+                                    {% if tx.tipe == 'Transfer Keluar' %}
+                                        <span class="tx-badge keluar">{{ tx.tipe }}</span>
+                                    {% elif tx.tipe == 'Transfer Masuk' %}
+                                        <span class="tx-badge masuk">{{ tx.tipe }}</span>
+                                    {% elif tx.tipe == 'Redeem Hadiah' %}
+                                        <span class="tx-badge redeem">{{ tx.tipe }}</span>
+                                    {% elif tx.tipe == 'Beli Package' %}
+                                        <span class="tx-badge package">{{ tx.tipe }}</span>
+                                    {% else %}
+                                        <span class="tx-badge klaim">{{ tx.tipe }}</span>
+                                    {% endif %}
+                                </td>
+                                <td style="color: var(--muted)">{{ tx.keterangan }}</td>
+                                <td>{{ tx.jumlah }}</td>
+                                <td style="color: var(--muted); font-size:0.8rem">{{ tx.timestamp }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="tx-empty">Belum ada transaksi.</div>
+                {% endif %}
+            </div>
+
+        {% elif role == 'staf' %}
+            <!-- Stat Klaim -->
+            <div class="card">
+                <div class="card-title">Ringkasan Klaim</div>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <div class="stat-num warning">{{ total_menunggu }}</div>
+                        <div class="stat-label">Menunggu<br>(Semua Staf)</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-num success">{{ klaim_staf.disetujui }}</div>
+                        <div class="stat-label">Disetujui<br>(Saya)</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-num danger">{{ klaim_staf.ditolak }}</div>
+                        <div class="stat-label">Ditolak<br>(Saya)</div>
+                    </div>
+                </div>
+                <a href="{% url 'kelola_klaim' %}" style="
+                    display: block;
+                    text-align: center;
+                    padding: 0.7rem;
+                    background: rgba(47,123,234,0.1);
+                    border: 1px solid rgba(47,123,234,0.2);
+                    border-radius: 10px;
+                    color: #82b4f5;
+                    text-decoration: none;
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                    transition: background 0.2s;
+                ">Lihat Semua Klaim →</a>
+            </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,393 @@
+{% extends 'base.html' %}
+
+{% block title %}Registrasi — AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .auth-wrapper {
+        min-height: calc(100vh - 64px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        position: relative;
+    }
+
+    .auth-wrapper::before {
+        content: '';
+        position: fixed;
+        top: -200px;
+        right: -200px;
+        width: 600px;
+        height: 600px;
+        background: radial-gradient(circle, rgba(47,123,234,0.1) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    .auth-card {
+        width: 100%;
+        max-width: 560px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.09);
+        border-radius: 20px;
+        padding: 2.5rem;
+        backdrop-filter: blur(12px);
+        animation: fadeUp 0.5s ease both;
+    }
+
+    @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(24px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .auth-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .auth-header h1 {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--white);
+        margin-bottom: 0.4rem;
+    }
+
+    .auth-header p {
+        color: var(--muted);
+        font-size: 0.9rem;
+    }
+
+    .role-tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+        margin-bottom: 2rem;
+    }
+
+    .role-tab {
+        padding: 1rem;
+        border: 2px solid rgba(255,255,255,0.1);
+        border-radius: 12px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: transparent;
+        color: var(--muted);
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 500;
+    }
+
+    .role-tab:hover {
+        border-color: rgba(47,123,234,0.4);
+        color: var(--white);
+    }
+
+    .role-tab.active {
+        border-color: var(--sky);
+        background: rgba(47,123,234,0.1);
+        color: var(--white);
+    }
+
+    .role-tab .role-icon {
+        font-size: 1.5rem;
+        display: block;
+        margin-bottom: 0.4rem;
+    }
+
+    .form-panel {
+        display: none;
+    }
+
+    .form-panel.active {
+        display: block;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.1rem;
+    }
+
+    label {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--muted);
+        margin-bottom: 0.45rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    input, select {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px;
+        color: var(--white);
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.9rem;
+        transition: border-color 0.2s, background 0.2s;
+        outline: none;
+    }
+
+    select {
+        cursor: pointer;
+    }
+
+    select option {
+        background: var(--navy-mid);
+        color: var(--white);
+    }
+
+    input:focus, select:focus {
+        border-color: var(--sky);
+        background: rgba(47,123,234,0.08);
+    }
+
+    input::placeholder {
+        color: rgba(136,146,176,0.5);
+    }
+
+    .phone-row {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        gap: 0.75rem;
+    }
+
+    .btn-primary {
+        width: 100%;
+        padding: 0.9rem;
+        background: var(--sky);
+        color: var(--white);
+        border: none;
+        border-radius: 10px;
+        font-family: 'Syne', sans-serif;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-top: 0.5rem;
+        letter-spacing: 0.02em;
+    }
+
+    .btn-primary:hover {
+        background: #1a6dd4;
+        transform: translateY(-1px);
+        box-shadow: 0 8px 24px rgba(47,123,234,0.3);
+    }
+
+    .auth-footer {
+        text-align: center;
+        margin-top: 1.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.875rem;
+    }
+
+    .auth-footer a {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .error-msg {
+        background: rgba(255, 107, 107, 0.1);
+        border: 1px solid rgba(255, 107, 107, 0.25);
+        color: #ff9999;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        margin-bottom: 1.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1>Buat Akun Baru</h1>
+            <p>Pilih tipe akun yang ingin didaftarkan</p>
+        </div>
+
+        {% if error %}
+            <div class="error-msg">{{ error }}</div>
+        {% endif %}
+
+        <div class="role-tabs">
+            <button class="role-tab active" onclick="switchRole('member', event)">
+                <span class="role-icon">🧳</span>
+                Member
+            </button>
+            <button class="role-tab" onclick="switchRole('staf', event)">
+                <span class="role-icon">👨‍✈️</span>
+                Staf
+            </button>
+        </div>
+
+        <!-- FORM MEMBER -->
+        <div id="panel-member" class="form-panel active">
+            <form method="POST" action="{% url 'register' %}">
+                {% csrf_token %}
+                <input type="hidden" name="role" value="member">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Salutation</label>
+                        <select name="salutation" required>
+                            <option value="">-- Pilih --</option>
+                            <option value="Mr.">Mr.</option>
+                            <option value="Mrs.">Mrs.</option>
+                            <option value="Ms.">Ms.</option>
+                            <option value="Dr.">Dr.</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Kewarganegaraan</label>
+                        <input type="text" name="kewarganegaraan" placeholder="Indonesia" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nama Depan & Tengah</label>
+                        <input type="text" name="first_mid_name" placeholder="Budi Santoso" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nama Belakang</label>
+                        <input type="text" name="last_name" placeholder="Wijaya" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" placeholder="budi@email.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Nomor HP</label>
+                    <div class="phone-row">
+                        <input type="text" name="country_code" placeholder="+62" required>
+                        <input type="text" name="mobile_number" placeholder="81234567890" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Tanggal Lahir</label>
+                    <input type="date" name="tanggal_lahir" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" placeholder="••••••••" required>
+                </div>
+                <div class="form-group">
+                    <label>Konfirmasi Password</label>
+                    <input type="password" name="confirm_password" placeholder="••••••••" required>
+                </div>
+
+                <button type="submit" class="btn-primary">Daftar sebagai Member →</button>
+            </form>
+        </div>
+
+        <!-- FORM STAF -->
+        <div id="panel-staf" class="form-panel">
+            <form method="POST" action="{% url 'register' %}">
+                {% csrf_token %}
+                <input type="hidden" name="role" value="staf">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Salutation</label>
+                        <select name="salutation" required>
+                            <option value="">-- Pilih --</option>
+                            <option value="Mr.">Mr.</option>
+                            <option value="Mrs.">Mrs.</option>
+                            <option value="Ms.">Ms.</option>
+                            <option value="Dr.">Dr.</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Kewarganegaraan</label>
+                        <input type="text" name="kewarganegaraan" placeholder="Indonesia" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nama Depan & Tengah</label>
+                        <input type="text" name="first_mid_name" placeholder="Siti Rahayu" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nama Belakang</label>
+                        <input type="text" name="last_name" placeholder="Putri" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" placeholder="siti@maskapai.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Nomor HP</label>
+                    <div class="phone-row">
+                        <input type="text" name="country_code" placeholder="+62" required>
+                        <input type="text" name="mobile_number" placeholder="81234567890" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tanggal Lahir</label>
+                        <input type="date" name="tanggal_lahir" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Kode Maskapai</label>
+                        <select name="kode_maskapai" required>
+                            <option value="">-- Pilih Maskapai --</option>
+                            {% for maskapai in maskapai_list %}
+                                <option value="{{ maskapai.kode_maskapai }}">{{ maskapai.kode_maskapai }} — {{ maskapai.nama_maskapai }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" placeholder="••••••••" required>
+                </div>
+                <div class="form-group">
+                    <label>Konfirmasi Password</label>
+                    <input type="password" name="confirm_password" placeholder="••••••••" required>
+                </div>
+
+                <button type="submit" class="btn-primary">Daftar sebagai Staf →</button>
+            </form>
+        </div>
+
+        <div class="auth-footer">
+            Sudah punya akun? <a href="{% url 'login' %}">Masuk di sini</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function switchRole(role, event) {
+        document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        document.getElementById('panel-' + role).classList.add('active');
+    }
+</script>
+{% endblock %}
