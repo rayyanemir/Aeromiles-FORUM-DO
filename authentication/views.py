@@ -41,11 +41,11 @@ def register_view(request):
                 """, [
                     email, hashed_pw,
                     data.get('salutation'),
-                    data.get('first_mid_name'),   # ← sesuai nama field di HTML
+                    data.get('first_mid_name'),   
                     data.get('last_name'),
                     data.get('country_code'),
-                    data.get('mobile_number'),    # ← sesuai nama field di HTML
-                    data.get('tanggal_lahir'),    # ← sesuai nama field di HTML
+                    data.get('mobile_number'),    
+                    data.get('tanggal_lahir'),   
                     data.get('kewarganegaraan')
                 ])
 
