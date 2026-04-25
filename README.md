@@ -50,6 +50,7 @@ url dan key akan diberikan di file pengumpulan
 ### 4. Database Setup
 Gunakan SQL Dump yang tersedia untuk membuat skema tabel manual di Supabase, kemudian jalankan migrasi sistem Django:
 ```bash
+python manage.py makemigrations core
 python manage.py migrate
 ```
 
