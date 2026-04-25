@@ -70,15 +70,17 @@ def register_view(request):
                         """, [email, nomor_member, id_tier])
 
                 else:  # staf
-                    cursor.execute("SELECT id_staf FROM staf ORDER BY id_staf DESC LIMIT 1")
-                    last = cursor.fetchone()
-                    next_num = int(last[0][1:]) + 1 if last else 1
-                    id_staf = f"S{next_num:04d}"
+                    with connection.cursor() as c1:
+                        c1.execute("SELECT id_staf FROM staf ORDER BY id_staf DESC LIMIT 1")
+                        last = c1.fetchone()
+                        next_num = int(last[0][1:]) + 1 if last else 1
+                        id_staf = f"S{next_num:04d}"
 
-                    cursor.execute("""
-                        INSERT INTO staf (email, id_staf, kode_maskapai)
-                        VALUES (%s, %s, %s)
-                    """, [email, id_staf, data.get('kode_maskapai')])
+                    with connection.cursor() as c2:
+                        c2.execute("""
+                            INSERT INTO staf (email, id_staf, kode_maskapai)
+                            VALUES (%s, %s, %s)
+                        """, [email, id_staf, data.get('kode_maskapai')])
 
             messages.success(request, "Registrasi berhasil! Silakan login.")
             return redirect('login')
