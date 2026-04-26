@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+{% block title %}Kelola Klaim — AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .page-header h1 {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.75rem;
+        font-weight: 700;
+    }
+
+    /* FILTER */
+    .filter-card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 14px;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: flex-end;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .filter-group label {
+        font-size: 0.75rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 500;
+    }
+
+    .filter-group select,
+    .filter-group input {
+        padding: 0.55rem 0.9rem;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 8px;
+        color: var(--white);
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.85rem;
+        outline: none;
+        min-width: 160px;
+    }
+
+    select option { background: #111936; }
+
+    .btn {
+        padding: 0.55rem 1.1rem;
+        border-radius: 8px;
+        font-family: 'Syne', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        border: none;
+        transition: all 0.2s;
+    }
+
+    .btn-primary { background: var(--sky); color: white; }
+    .btn-primary:hover { background: #1a6dd4; }
+
+    .btn-reset {
+        background: rgba(255,255,255,0.06);
+        color: var(--muted);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .btn-reset:hover { color: var(--white); }
+
+    .btn-proses {
+        background: rgba(47,123,234,0.12);
+        color: #82b4f5;
+        border: 1px solid rgba(47,123,234,0.2);
+        padding: 0.35rem 0.8rem;
+        font-size: 0.78rem;
+        border-radius: 7px;
+    }
+
+    .btn-proses:hover { background: rgba(47,123,234,0.2); }
+
+    /* TABLE */
+    .card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+
+    thead th {
+        text-align: left;
+        padding: 1rem 1.1rem;
+        color: var(--muted);
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        font-weight: 500;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+        background: rgba(255,255,255,0.02);
+        white-space: nowrap;
+    }
+
+    tbody td {
+        padding: 0.9rem 1.1rem;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        color: var(--white);
+        vertical-align: middle;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .badge {
+        display: inline-block;
+        padding: 0.22rem 0.65rem;
+        border-radius: 20px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .badge-menunggu {
+        background: rgba(245,166,35,0.12);
+        color: var(--accent-light);
+        border: 1px solid rgba(245,166,35,0.2);
+    }
+
+    .badge-disetujui {
+        background: rgba(80,200,120,0.12);
+        color: #7debb0;
+        border: 1px solid rgba(80,200,120,0.2);
+    }
+
+    .badge-ditolak {
+        background: rgba(255,107,107,0.12);
+        color: #ff9999;
+        border: 1px solid rgba(255,107,107,0.2);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--muted);
+    }
+
+    .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Kelola Klaim Missing Miles</h1>
+        <p style="color: var(--muted); font-size: 0.9rem; margin-top: 0.25rem">Proses dan verifikasi klaim dari member</p>
+    </div>
+</div>
+
+<!-- Filter -->
+<form method="GET" action="{% url 'kelola_klaim' %}">
+    <div class="filter-card">
+        <div class="filter-group">
+            <label>Status</label>
+            <select name="status">
+                <option value="">Semua Status</option>
+                <option value="Menunggu" {% if status_filter == 'Menunggu' %}selected{% endif %}>Menunggu</option>
+                <option value="Disetujui" {% if status_filter == 'Disetujui' %}selected{% endif %}>Disetujui</option>
+                <option value="Ditolak" {% if status_filter == 'Ditolak' %}selected{% endif %}>Ditolak</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Maskapai</label>
+            <select name="maskapai">
+                <option value="">Semua Maskapai</option>
+                {% for m in maskapai_list %}
+                    <option value="{{ m.kode }}" {% if maskapai_filter == m.kode %}selected{% endif %}>
+                        {{ m.kode }} — {{ m.nama }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Tanggal Dari</label>
+            <input type="date" name="tgl_dari" value="{{ tgl_dari }}">
+        </div>
+        <div class="filter-group">
+            <label>Tanggal Sampai</label>
+            <input type="date" name="tgl_sampai" value="{{ tgl_sampai }}">
+        </div>
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <a href="{% url 'kelola_klaim' %}" class="btn btn-reset">Reset</a>
+    </div>
+</form>
+
+<!-- Tabel -->
+<div class="card">
+    {% if klaim_list %}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Member</th>
+                <th>Maskapai</th>
+                <th>Rute</th>
+                <th>Tgl Penerbangan</th>
+                <th>Flight</th>
+                <th>Kelas</th>
+                <th>Tgl Pengajuan</th>
+                <th>Status</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for k in klaim_list %}
+            <tr>
+                <td style="color: var(--muted)">#{{ k.id }}</td>
+                <td>
+                    <div>{{ k.nama_member }}</div>
+                    <div style="font-size: 0.78rem; color: var(--muted)">{{ k.email_member }}</div>
+                </td>
+                <td>{{ k.maskapai }}</td>
+                <td>
+                    {{ k.bandara_asal_code }}
+                    <span style="color: var(--muted)">→</span>
+                    {{ k.bandara_tujuan_code }}
+                </td>
+                <td style="color: var(--muted)">{{ k.tanggal_penerbangan }}</td>
+                <td>{{ k.flight_number }}</td>
+                <td style="color: var(--muted)">{{ k.kelas_kabin }}</td>
+                <td style="color: var(--muted); font-size: 0.78rem">{{ k.timestamp|date:"d M Y H:i" }}</td>
+                <td>
+                    {% if k.status == 'Menunggu' %}
+                        <span class="badge badge-menunggu">Menunggu</span>
+                    {% elif k.status == 'Disetujui' %}
+                        <span class="badge badge-disetujui">Disetujui</span>
+                    {% else %}
+                        <span class="badge badge-ditolak">Ditolak</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if k.status == 'Menunggu' %}
+                        <a href="{% url 'klaim_proses' k.id %}" class="btn btn-proses">Proses</a>
+                    {% else %}
+                        <span style="color: var(--muted); font-size: 0.8rem">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <p>Tidak ada klaim yang ditemukan.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

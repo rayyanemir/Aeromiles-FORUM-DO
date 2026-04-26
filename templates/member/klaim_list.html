@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+{% block title %}Klaim Missing Miles — AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .page-header h1 {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.75rem;
+        font-weight: 700;
+    }
+
+    .btn {
+        padding: 0.6rem 1.2rem;
+        border-radius: 10px;
+        font-family: 'Syne', sans-serif;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        border: none;
+        transition: all 0.2s;
+    }
+
+    .btn-primary { background: var(--sky); color: white; }
+    .btn-primary:hover { background: #1a6dd4; transform: translateY(-1px); }
+
+    .btn-sm { padding: 0.35rem 0.8rem; font-size: 0.78rem; border-radius: 7px; }
+
+    .btn-edit {
+        background: rgba(47,123,234,0.12);
+        color: #82b4f5;
+        border: 1px solid rgba(47,123,234,0.2);
+    }
+
+    .btn-hapus {
+        background: rgba(255,107,107,0.12);
+        color: #ff9999;
+        border: 1px solid rgba(255,107,107,0.2);
+    }
+
+    .filter-bar {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .filter-btn {
+        padding: 0.4rem 1rem;
+        border-radius: 20px;
+        font-size: 0.82rem;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1px solid rgba(255,255,255,0.1);
+        color: var(--muted);
+        background: transparent;
+        transition: all 0.2s;
+    }
+
+    .filter-btn:hover, .filter-btn.active {
+        border-color: var(--sky);
+        color: var(--white);
+        background: rgba(47,123,234,0.1);
+    }
+
+    .card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .loading-overlay {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(10,15,44,0.6);
+        backdrop-filter: blur(2px);
+        align-items: center;
+        justify-content: center;
+        border-radius: 16px;
+        z-index: 10;
+    }
+
+    .loading-overlay.show { display: flex; }
+
+    .spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid rgba(47,123,234,0.2);
+        border-top-color: var(--sky);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+
+    thead th {
+        text-align: left;
+        padding: 1rem 1.25rem;
+        color: var(--muted);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        font-weight: 500;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+        background: rgba(255,255,255,0.02);
+    }
+
+    tbody td {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        color: var(--white);
+        vertical-align: middle;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.7rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-menunggu {
+        background: rgba(245,166,35,0.12);
+        color: var(--accent-light);
+        border: 1px solid rgba(245,166,35,0.2);
+    }
+
+    .badge-disetujui {
+        background: rgba(80,200,120,0.12);
+        color: #7debb0;
+        border: 1px solid rgba(80,200,120,0.2);
+    }
+
+    .badge-ditolak {
+        background: rgba(255,107,107,0.12);
+        color: #ff9999;
+        border: 1px solid rgba(255,107,107,0.2);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--muted);
+    }
+
+    .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+    .aksi-group { display: flex; gap: 0.5rem; }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(6px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    #klaim-table-wrapper { animation: fadeIn 0.25s ease both; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Klaim Missing Miles</h1>
+        <p style="color: var(--muted); font-size: 0.9rem; margin-top: 0.25rem">Riwayat pengajuan klaim miles kamu</p>
+    </div>
+    <a href="{% url 'klaim_buat' %}" class="btn btn-primary">+ Ajukan Klaim</a>
+</div>
+
+<div class="filter-bar">
+    <button class="filter-btn {% if not status_filter %}active{% endif %}" onclick="filterKlaim('', this)">Semua</button>
+    <button class="filter-btn {% if status_filter == 'Menunggu' %}active{% endif %}" onclick="filterKlaim('Menunggu', this)">Menunggu</button>
+    <button class="filter-btn {% if status_filter == 'Disetujui' %}active{% endif %}" onclick="filterKlaim('Disetujui', this)">Disetujui</button>
+    <button class="filter-btn {% if status_filter == 'Ditolak' %}active{% endif %}" onclick="filterKlaim('Ditolak', this)">Ditolak</button>
+</div>
+
+<div class="card" id="klaim-card">
+    <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+    </div>
+    <div id="klaim-table-wrapper">
+        {% include 'member/klaim_table_partial.html' %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function filterKlaim(status, btn) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        document.getElementById('loading').classList.add('show');
+
+        fetch(`{% url 'klaim_list' %}?status=${status}&ajax=1`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.text())
+        .then(html => {
+            const wrapper = document.getElementById('klaim-table-wrapper');
+            wrapper.style.animation = 'none';
+            wrapper.innerHTML = html;
+            wrapper.offsetHeight; // reflow
+            wrapper.style.animation = '';
+            document.getElementById('loading').classList.remove('show');
+            history.pushState({}, '', status ? `?status=${status}` : window.location.pathname);
+        })
+        .catch(() => {
+            document.getElementById('loading').classList.remove('show');
+        });
+    }
+</script>
+{% endblock %}

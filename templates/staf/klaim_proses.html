@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% block title %}Proses Klaim — AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .confirm-wrapper {
+        max-width: 520px;
+        margin: 2rem auto;
+    }
+
+    .card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        padding: 2rem;
+    }
+
+    .card-title {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-bottom: 0.4rem;
+    }
+
+    .card-sub {
+        color: var(--muted);
+        font-size: 0.875rem;
+        margin-bottom: 1.75rem;
+    }
+
+    .detail-box {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1.75rem;
+    }
+
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.45rem 0;
+        font-size: 0.875rem;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .detail-row:last-child { border-bottom: none; }
+
+    .detail-row .label { color: var(--muted); }
+    .detail-row .value { color: var(--white); font-weight: 500; }
+
+    .miles-info {
+        background: rgba(47,123,234,0.08);
+        border: 1px solid rgba(47,123,234,0.2);
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1.75rem;
+        font-size: 0.875rem;
+        color: #82b4f5;
+    }
+
+    .miles-info strong {
+        color: var(--accent);
+        font-size: 1rem;
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .btn {
+        flex: 1;
+        padding: 0.8rem;
+        border-radius: 10px;
+        font-family: 'Syne', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        border: none;
+        transition: all 0.2s;
+        text-align: center;
+    }
+
+    .btn-approve {
+        background: rgba(80,200,120,0.12);
+        color: #7debb0;
+        border: 1px solid rgba(80,200,120,0.25);
+    }
+
+    .btn-approve:hover { background: rgba(80,200,120,0.2); }
+
+    .btn-reject {
+        background: rgba(255,107,107,0.12);
+        color: #ff9999;
+        border: 1px solid rgba(255,107,107,0.25);
+    }
+
+    .btn-reject:hover { background: rgba(255,107,107,0.2); }
+
+    .btn-secondary {
+        background: rgba(255,255,255,0.06);
+        color: var(--muted);
+        border: 1px solid rgba(255,255,255,0.1);
+        flex: 0;
+        padding: 0.8rem 1.25rem;
+    }
+
+    .btn-secondary:hover { color: var(--white); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="confirm-wrapper">
+    <div class="card">
+        <div class="card-title">Proses Klaim #{{ klaim.id }}</div>
+        <div class="card-sub">Setujui atau tolak klaim missing miles berikut</div>
+
+        <div class="detail-box">
+            <div class="detail-row">
+                <span class="label">Member</span>
+                <span class="value">{{ klaim.nama_member }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Email</span>
+                <span class="value">{{ klaim.email_member }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Maskapai</span>
+                <span class="value">{{ klaim.maskapai }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Rute</span>
+                <span class="value">{{ klaim.bandara_asal }} → {{ klaim.bandara_tujuan }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Tanggal Penerbangan</span>
+                <span class="value">{{ klaim.tanggal_penerbangan }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Flight Number</span>
+                <span class="value">{{ klaim.flight_number }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Kelas Kabin</span>
+                <span class="value">{{ klaim.kelas_kabin }}</span>
+            </div>
+        </div>
+
+        <div class="miles-info">
+            Jika disetujui, member akan mendapatkan:
+            <strong>
+                {% if klaim.kelas_kabin == 'Economy' %}500
+                {% elif klaim.kelas_kabin == 'Business' %}1000
+                {% else %}2000
+                {% endif %}
+            </strong> miles
+        </div>
+
+        <form method="POST">
+            {% csrf_token %}
+            <div class="btn-group">
+                <button type="submit" name="aksi" value="Disetujui" class="btn btn-approve">✓ Setujui</button>
+                <button type="submit" name="aksi" value="Ditolak" class="btn btn-reject">✗ Tolak</button>
+                <a href="{% url 'kelola_klaim' %}" class="btn btn-secondary">Batal</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% block title %}Transfer Miles — AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .page-header h1 {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.75rem;
+        font-weight: 700;
+    }
+
+    .btn {
+        padding: 0.6rem 1.2rem;
+        border-radius: 10px;
+        font-family: 'Syne', sans-serif;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        border: none;
+        transition: all 0.2s;
+    }
+
+    .btn-primary {
+        background: var(--sky);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #1a6dd4;
+        transform: translateY(-1px);
+    }
+
+    .card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+
+    thead th {
+        text-align: left;
+        padding: 1rem 1.25rem;
+        color: var(--muted);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        font-weight: 500;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+        background: rgba(255,255,255,0.02);
+    }
+
+    tbody td {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        color: var(--white);
+        vertical-align: middle;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.25rem 0.7rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-kirim {
+        background: rgba(255,107,107,0.12);
+        color: #ff9999;
+        border: 1px solid rgba(255,107,107,0.2);
+    }
+
+    .badge-terima {
+        background: rgba(80,200,120,0.12);
+        color: #7debb0;
+        border: 1px solid rgba(80,200,120,0.2);
+    }
+
+    .miles-kirim { color: #ff9999; font-weight: 600; }
+    .miles-terima { color: #7debb0; font-weight: 600; }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--muted);
+    }
+
+    .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Transfer Miles</h1>
+        <p style="color: var(--muted); font-size: 0.9rem; margin-top: 0.25rem">Riwayat transfer miles kamu</p>
+    </div>
+    <a href="{% url 'transfer_buat' %}" class="btn btn-primary">+ Transfer Miles</a>
+</div>
+
+<div class="card">
+    {% if transfer_list %}
+    <table>
+        <thead>
+            <tr>
+                <th>Tipe</th>
+                <th>Member</th>
+                <th>Email</th>
+                <th>Jumlah Miles</th>
+                <th>Catatan</th>
+                <th>Waktu</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in transfer_list %}
+            <tr>
+                <td>
+                    {% if t.tipe == 'Kirim' %}
+                        <span class="badge badge-kirim">↑ Kirim</span>
+                    {% else %}
+                        <span class="badge badge-terima">↓ Terima</span>
+                    {% endif %}
+                </td>
+                <td>{{ t.nama_lawan }}</td>
+                <td style="color: var(--muted)">{{ t.email_lawan }}</td>
+                <td>
+                    {% if t.tipe == 'Kirim' %}
+                        <span class="miles-kirim">-{{ t.jumlah }}</span>
+                    {% else %}
+                        <span class="miles-terima">+{{ t.jumlah }}</span>
+                    {% endif %}
+                </td>
+                <td style="color: var(--muted)">{{ t.catatan|default:"—" }}</td>
+                <td style="color: var(--muted); font-size: 0.8rem">{{ t.timestamp|date:"d M Y H:i" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">↔️</div>
+        <p>Belum ada riwayat transfer.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

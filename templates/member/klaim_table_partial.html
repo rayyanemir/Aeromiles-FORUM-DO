@@ -1,0 +1,58 @@
+{% if klaim_list %}
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Maskapai</th>
+            <th>Rute</th>
+            <th>Tanggal</th>
+            <th>Flight</th>
+            <th>Kelas</th>
+            <th>Status</th>
+            <th>Diajukan</th>
+            <th>Aksi</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for k in klaim_list %}
+        <tr>
+            <td style="color: var(--muted)">#{{ k.id }}</td>
+            <td>{{ k.maskapai }}</td>
+            <td>
+                <span>{{ k.bandara_asal_code }}</span>
+                <span style="color: var(--muted)"> → </span>
+                <span>{{ k.bandara_tujuan_code }}</span>
+            </td>
+            <td style="color: var(--muted)">{{ k.tanggal_penerbangan }}</td>
+            <td>{{ k.flight_number }}</td>
+            <td style="color: var(--muted)">{{ k.kelas_kabin }}</td>
+            <td>
+                {% if k.status == 'Menunggu' %}
+                    <span class="badge badge-menunggu">Menunggu</span>
+                {% elif k.status == 'Disetujui' %}
+                    <span class="badge badge-disetujui">Disetujui</span>
+                {% else %}
+                    <span class="badge badge-ditolak">Ditolak</span>
+                {% endif %}
+            </td>
+            <td style="color: var(--muted); font-size: 0.8rem">{{ k.timestamp|date:"d M Y H:i" }}</td>
+            <td>
+                {% if k.status == 'Menunggu' %}
+                <div class="aksi-group">
+                    <a href="{% url 'klaim_edit' k.id %}" class="btn btn-sm btn-edit">Edit</a>
+                    <a href="{% url 'klaim_hapus' k.id %}" class="btn btn-sm btn-hapus">Batalkan</a>
+                </div>
+                {% else %}
+                <span style="color: var(--muted); font-size: 0.8rem">—</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+    <div class="empty-icon">📋</div>
+    <p>Belum ada klaim yang ditemukan.</p>
+</div>
+{% endif %}

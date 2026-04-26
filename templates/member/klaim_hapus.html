@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}Batalkan Klaim — AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .confirm-wrapper {
+        max-width: 480px;
+        margin: 3rem auto;
+    }
+
+    .card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,107,107,0.2);
+        border-radius: 16px;
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .confirm-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .confirm-title {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--white);
+        margin-bottom: 0.5rem;
+    }
+
+    .confirm-desc {
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1.6;
+        margin-bottom: 1.5rem;
+    }
+
+    .confirm-detail {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1.75rem;
+        text-align: left;
+    }
+
+    .confirm-detail .row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.875rem;
+        padding: 0.35rem 0;
+    }
+
+    .confirm-detail .row .label {
+        color: var(--muted);
+    }
+
+    .confirm-detail .row .value {
+        color: var(--white);
+        font-weight: 500;
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: center;
+    }
+
+    .btn {
+        padding: 0.7rem 1.5rem;
+        border-radius: 10px;
+        font-family: 'Syne', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        border: none;
+        transition: all 0.2s;
+    }
+
+    .btn-danger {
+        background: rgba(255,107,107,0.15);
+        color: #ff9999;
+        border: 1px solid rgba(255,107,107,0.3);
+    }
+
+    .btn-danger:hover {
+        background: rgba(255,107,107,0.25);
+    }
+
+    .btn-secondary {
+        background: rgba(255,255,255,0.06);
+        color: var(--muted);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .btn-secondary:hover {
+        color: var(--white);
+        background: rgba(255,255,255,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="confirm-wrapper">
+    <div class="card">
+        <div class="confirm-icon">⚠️</div>
+        <div class="confirm-title">Batalkan Klaim?</div>
+        <p class="confirm-desc">Klaim ini akan dihapus secara permanen dan tidak dapat dikembalikan.</p>
+
+        <div class="confirm-detail">
+            <div class="row">
+                <span class="label">Flight Number</span>
+                <span class="value">{{ flight_number }}</span>
+            </div>
+            <div class="row">
+                <span class="label">Maskapai</span>
+                <span class="value">{{ maskapai }}</span>
+            </div>
+            <div class="row">
+                <span class="label">Tanggal</span>
+                <span class="value">{{ tanggal }}</span>
+            </div>
+        </div>
+
+        <div class="btn-group">
+            <form method="POST">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Ya, Batalkan Klaim</button>
+            </form>
+            <a href="{% url 'klaim_list' %}" class="btn btn-secondary">Kembali</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
