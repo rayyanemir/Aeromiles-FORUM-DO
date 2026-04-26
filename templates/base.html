@@ -9,30 +9,101 @@
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --navy: #0a0f2c;
-            --navy-mid: #111936;
-            --blue: #1a3a8f;
-            --sky: #2f7bea;
-            --accent: #f5a623;
-            --accent-light: #ffd980;
-            --white: #f8f9ff;
-            --muted: #8892b0;
-            --border: rgba(255,255,255,0.08);
-            --card: rgba(255,255,255,0.04);
-        }
-
-        body {
-            font-family: 'DM Sans', sans-serif;
-            background: var(--navy);
-            color: var(--white);
-            min-height: 100vh;
-        }
+    --navy: #0a0f2c;
+    --navy-mid: #111936;
+    --blue: #1a3a8f;
+    --sky: #2f7bea;
+    --accent: #f5a623;
+    --accent-light: #ffd980;
+    --white: #f8f9ff;
+    --muted: #8892b0;
+    --border: rgba(255,255,255,0.08);
+    --card: rgba(255,255,255,0.04);
+}
+ 
+body {
+    font-family: 'DM Sans', sans-serif;
+    color: var(--white);
+    min-height: 100vh;
+    margin: 0;
+    background:
+        /* Bintang-bintang kecil (hanya di bagian atas/gelap) */
+        radial-gradient(2px 2px at 10% 5%, rgba(255,255,255,1) 0%, transparent 100%),
+        radial-gradient(2px 2px at 25% 3%, rgba(255,255,255,0.9) 0%, transparent 100%),
+        radial-gradient(3px 3px at 40% 8%, rgba(255,255,255,1) 0%, transparent 100%),
+        radial-gradient(2px 2px at 55% 2%, rgba(255,255,255,0.95) 0%, transparent 100%),
+        radial-gradient(2px 2px at 70% 6%, rgba(255,255,255,0.9) 0%, transparent 100%),
+        radial-gradient(3px 3px at 85% 4%, rgba(255,255,255,1) 0%, transparent 100%),
+        radial-gradient(2px 2px at 92% 9%, rgba(255,255,255,0.85) 0%, transparent 100%),
+        radial-gradient(2px 2px at 5% 12%, rgba(255,255,255,0.9) 0%, transparent 100%),
+        radial-gradient(3px 3px at 18% 18%, rgba(255,255,255,1) 0%, transparent 100%),
+        radial-gradient(2px 2px at 33% 14%, rgba(255,255,255,0.8) 0%, transparent 100%),
+        radial-gradient(2px 2px at 48% 20%, rgba(255,255,255,0.9) 0%, transparent 100%),
+        radial-gradient(2px 2px at 63% 11%, rgba(255,255,255,0.95) 0%, transparent 100%),
+        radial-gradient(3px 3px at 75% 22%, rgba(255,255,255,1) 0%, transparent 100%),
+        radial-gradient(2px 2px at 88% 15%, rgba(255,255,255,0.85) 0%, transparent 100%),
+        radial-gradient(2px 2px at 97% 25%, rgba(255,255,255,0.9) 0%, transparent 100%),
+        radial-gradient(2px 2px at 7% 28%, rgba(255,255,255,0.7) 0%, transparent 100%),
+        radial-gradient(2px 2px at 44% 32%, rgba(255,255,255,0.6) 0%, transparent 100%),
+        radial-gradient(2px 2px at 67% 35%, rgba(255,255,255,0.5) 0%, transparent 100%),
+        radial-gradient(2px 2px at 13% 42%, rgba(255,255,255,0.6) 0%, transparent 100%),
+        radial-gradient(3px 3px at 29% 38%, rgba(255,255,255,0.9) 0%, transparent 100%),
+        radial-gradient(2px 2px at 52% 28%, rgba(255,255,255,0.7) 0%, transparent 100%),
+        radial-gradient(2px 2px at 71% 44%, rgba(255,255,255,0.5) 0%, transparent 100%),
+        radial-gradient(3px 3px at 83% 31%, rgba(255,255,255,0.8) 0%, transparent 100%),
+        radial-gradient(2px 2px at 95% 38%, rgba(255,255,255,0.6) 0%, transparent 100%),
+        radial-gradient(2px 2px at 3% 22%, rgba(255,255,255,0.85) 0%, transparent 100%),
+        radial-gradient(3px 3px at 36% 45%, rgba(255,255,255,0.7) 0%, transparent 100%),
+        radial-gradient(2px 2px at 57% 17%, rgba(255,255,255,0.9) 0%, transparent 100%),
+        radial-gradient(2px 2px at 79% 48%, rgba(255,255,255,0.6) 0%, transparent 100%),
+        radial-gradient(3px 3px at 21% 10%, rgba(255,255,255,1) 0%, transparent 100%),
+        radial-gradient(2px 2px at 46% 40%, rgba(255,255,255,0.5) 0%, transparent 100%),
+        radial-gradient(2px 2px at 62% 50%, rgba(255,255,255,0.4) 0%, transparent 100%),
+        radial-gradient(3px 3px at 90% 42%, rgba(255,255,255,0.75) 0%, transparent 100%),
+        radial-gradient(2px 2px at 8% 48%, rgba(255,255,255,0.55) 0%, transparent 100%),
+        /* Aurora biru di atas */
+        radial-gradient(ellipse 80% 30% at 20% 0%, rgba(47,123,234,0.2) 0%, transparent 60%),
+        /* Glow oranye/kuning sunrise di bawah */
+        radial-gradient(ellipse 100% 40% at 50% 100%, rgba(245,166,35,0.25) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 30% at 80% 90%, rgba(255,120,50,0.15) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 25% at 20% 95%, rgba(255,180,50,0.1) 0%, transparent 60%),
+        /* Gradasi utama: navbar gelap → biru → ungu → oranye sunrise */
+        linear-gradient(
+            180deg,
+            #0a0f2c 0%,      /* warna navbar */
+            #0a1535 10%,
+            #0d1e4a 25%,
+            #0f2660 40%,
+            #1a2060 55%,
+            #2d1f5e 65%,     /* transisi ungu */
+            #4a1f4a 72%,     /* ungu-merah */
+            #6b2535 80%,     /* merah gelap */
+            #8b3a1a 88%,     /* coklat oranye */
+            #b5581a 93%,     /* oranye */
+            #c97820 97%,     /* oranye kuning */
+            #d4921a 100%     /* kuning emas */
+        );
+    background-attachment: fixed;
+}
+body::after {
+    content: '';
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 200px;
+    background: radial-gradient(ellipse 120% 100% at 50% 100%,
+        rgba(15, 30, 80, 0.6) 0%,
+        transparent 70%
+    );
+    pointer-events: none;
+    z-index: 0;
+}
 
         /* NAVBAR */
         nav {
-            position: sticky;
-            top: 0;
-            z-index: 100;
+            position: relative;
+            z-index: 1;
             background: rgba(10, 15, 44, 0.92);
             backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--border);
@@ -114,6 +185,8 @@
 
         /* MAIN CONTENT */
         main {
+            position: relative;
+            z-index: 1;
             padding: 2.5rem 2rem;
             max-width: 1200px;
             margin: 0 auto;
