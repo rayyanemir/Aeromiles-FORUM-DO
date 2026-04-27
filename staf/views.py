@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
-from django.db import connection
+from django.db import connection, transaction
+from django.utils import timezone
+from member.tier_logic import sync_member_tier
 
 
 def login_required_staf(view_func):
@@ -12,6 +14,318 @@ def login_required_staf(view_func):
             return redirect('dashboard')
         return view_func(request, *args, **kwargs)
     return wrapper
+
+
+def get_laporan_filters(request):
+    return {
+        'tab': request.GET.get('tab', 'riwayat'),
+        'tipe': request.GET.get('tipe', '').strip(),
+        'member': request.GET.get('member', '').strip(),
+        'tgl_dari': request.GET.get('tgl_dari', '').strip(),
+        'tgl_sampai': request.GET.get('tgl_sampai', '').strip(),
+    }
+
+
+def get_laporan_stats():
+    now = timezone.now()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    with connection.cursor() as c:
+        c.execute("SELECT COALESCE(SUM(total_miles), 0) FROM member")
+        total_miles_beredar = c.fetchone()[0] or 0
+
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT COALESCE(SUM(h.miles), 0)
+            FROM redeem r
+            JOIN hadiah h ON r.kode_hadiah = h.kode_hadiah
+            WHERE r.timestamp >= %s
+        """, [month_start])
+        total_redeem_bulan_ini = c.fetchone()[0] or 0
+
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT COALESCE(SUM(
+                CASE cm.kelas_kabin
+                    WHEN 'Economy' THEN 500
+                    WHEN 'Business' THEN 1000
+                    WHEN 'First' THEN 2000
+                    ELSE 500
+                END
+            ), 0)
+            FROM claim_missing_miles cm
+            WHERE cm.status_penerimaan = 'Disetujui'
+        """)
+        total_klaim_disetujui = c.fetchone()[0] or 0
+
+    return {
+        'total_miles_beredar': total_miles_beredar,
+        'total_redeem_bulan_ini': total_redeem_bulan_ini,
+        'total_klaim_disetujui': total_klaim_disetujui,
+    }
+
+
+def get_laporan_transactions(filters):
+    query = """
+        WITH transaksi AS (
+            SELECT
+                'Transfer' AS tipe,
+                p.first_mid_name || ' ' || p.last_name AS member_nama,
+                t.email_member_1 AS member_email,
+                -t.jumlah AS miles,
+                t.timestamp AS waktu,
+                TRUE AS bisa_hapus,
+                'transfer' AS delete_type,
+                t.email_member_1 AS key_one,
+                t.email_member_2 AS key_two,
+                TO_CHAR(t.timestamp, 'YYYY-MM-DD"T"HH24:MI:SS.US') AS key_three
+            FROM transfer t
+            JOIN pengguna p ON t.email_member_1 = p.email
+
+            UNION ALL
+
+            SELECT
+                'Redeem',
+                p.first_mid_name || ' ' || p.last_name,
+                r.email_member,
+                -h.miles,
+                r.timestamp,
+                TRUE,
+                'redeem',
+                r.email_member,
+                r.kode_hadiah,
+                TO_CHAR(r.timestamp, 'YYYY-MM-DD"T"HH24:MI:SS.US')
+            FROM redeem r
+            JOIN pengguna p ON r.email_member = p.email
+            JOIN hadiah h ON r.kode_hadiah = h.kode_hadiah
+
+            UNION ALL
+
+            SELECT
+                'Package',
+                p.first_mid_name || ' ' || p.last_name,
+                mp.email_member,
+                amp.jumlah_award_miles,
+                mp.timestamp,
+                TRUE,
+                'package',
+                mp.email_member,
+                mp.id_award_miles_package,
+                TO_CHAR(mp.timestamp, 'YYYY-MM-DD"T"HH24:MI:SS.US')
+            FROM member_award_miles_package mp
+            JOIN pengguna p ON mp.email_member = p.email
+            JOIN award_miles_package amp ON mp.id_award_miles_package = amp.id
+
+            UNION ALL
+
+            SELECT
+                'Klaim',
+                p.first_mid_name || ' ' || p.last_name,
+                cm.email_member,
+                CASE cm.kelas_kabin
+                    WHEN 'Economy' THEN 500
+                    WHEN 'Business' THEN 1000
+                    WHEN 'First' THEN 2000
+                    ELSE 500
+                END,
+                cm.timestamp,
+                FALSE,
+                'claim',
+                cm.email_member,
+                COALESCE(cm.id::text, ''),
+                TO_CHAR(cm.timestamp, 'YYYY-MM-DD"T"HH24:MI:SS.US')
+            FROM claim_missing_miles cm
+            JOIN pengguna p ON cm.email_member = p.email
+            WHERE cm.status_penerimaan = 'Disetujui'
+        )
+        SELECT *
+        FROM transaksi
+        WHERE 1=1
+    """
+    params = []
+
+    if filters['tipe']:
+        query += " AND tipe = %s"
+        params.append(filters['tipe'])
+
+    if filters['member']:
+        query += " AND (member_nama ILIKE %s OR member_email ILIKE %s)"
+        keyword = f"%{filters['member']}%"
+        params.extend([keyword, keyword])
+
+    if filters['tgl_dari']:
+        query += " AND waktu::date >= %s"
+        params.append(filters['tgl_dari'])
+
+    if filters['tgl_sampai']:
+        query += " AND waktu::date <= %s"
+        params.append(filters['tgl_sampai'])
+
+    query += " ORDER BY waktu DESC"
+
+    with connection.cursor() as c:
+        c.execute(query, params)
+        rows = c.fetchall()
+
+    transactions = []
+    for row in rows:
+        transactions.append({
+            'tipe': row[0],
+            'member_nama': row[1],
+            'member_email': row[2],
+            'miles': row[3],
+            'waktu': row[4],
+            'bisa_hapus': row[5],
+            'delete_type': row[6],
+            'key_one': row[7],
+            'key_two': row[8],
+            'key_three': row[9],
+        })
+
+    return transactions
+
+
+def get_top_member_data():
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT
+                p.first_mid_name || ' ' || p.last_name AS member_nama,
+                m.email,
+                COALESCE(m.total_miles, 0) AS total_miles,
+                (
+                    COALESCE((SELECT COUNT(*) FROM transfer t WHERE t.email_member_1 = m.email), 0) +
+                    COALESCE((SELECT COUNT(*) FROM redeem r WHERE r.email_member = m.email), 0) +
+                    COALESCE((SELECT COUNT(*) FROM member_award_miles_package mp WHERE mp.email_member = m.email), 0) +
+                    COALESCE((SELECT COUNT(*) FROM claim_missing_miles cm WHERE cm.email_member = m.email AND cm.status_penerimaan = 'Disetujui'), 0)
+                ) AS jumlah_transaksi
+            FROM member m
+            JOIN pengguna p ON m.email = p.email
+            ORDER BY total_miles DESC, jumlah_transaksi DESC, member_nama ASC
+            LIMIT 5
+        """)
+        top_total_miles_rows = c.fetchall()
+
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT
+                p.first_mid_name || ' ' || p.last_name AS member_nama,
+                t.email_member_1 AS member_email,
+                COUNT(*) AS jumlah_transfer,
+                COALESCE(SUM(t.jumlah), 0) AS total_miles_transfer
+            FROM transfer t
+            JOIN pengguna p ON t.email_member_1 = p.email
+            GROUP BY member_nama, member_email
+            ORDER BY jumlah_transfer DESC, total_miles_transfer DESC, member_nama ASC
+            LIMIT 5
+        """)
+        top_transfer_rows = c.fetchall()
+
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT
+                p.first_mid_name || ' ' || p.last_name AS member_nama,
+                r.email_member AS member_email,
+                COUNT(*) AS jumlah_redeem,
+                COALESCE(SUM(h.miles), 0) AS total_miles_redeem
+            FROM redeem r
+            JOIN pengguna p ON r.email_member = p.email
+            JOIN hadiah h ON r.kode_hadiah = h.kode_hadiah
+            GROUP BY member_nama, member_email
+            ORDER BY jumlah_redeem DESC, total_miles_redeem DESC, member_nama ASC
+            LIMIT 5
+        """)
+        top_redeem_rows = c.fetchall()
+
+    return {
+        'top_total_miles': [{
+            'ranking': index + 1,
+            'member_nama': row[0],
+            'member_email': row[1],
+            'total_miles': row[2],
+            'jumlah_transaksi': row[3],
+        } for index, row in enumerate(top_total_miles_rows)],
+        'top_transfer': [{
+            'ranking': index + 1,
+            'member_nama': row[0],
+            'member_email': row[1],
+            'jumlah_transfer': row[2],
+            'total_miles_transfer': row[3],
+        } for index, row in enumerate(top_transfer_rows)],
+        'top_redeem': [{
+            'ranking': index + 1,
+            'member_nama': row[0],
+            'member_email': row[1],
+            'jumlah_redeem': row[2],
+            'total_miles_redeem': row[3],
+        } for index, row in enumerate(top_redeem_rows)],
+    }
+
+
+@login_required_staf
+def laporan_transaksi(request):
+    filters = get_laporan_filters(request)
+
+    if filters['tab'] not in ['riwayat', 'top-member']:
+        filters['tab'] = 'riwayat'
+
+    context = {
+        'filters': filters,
+        'stats': get_laporan_stats(),
+        'transactions': get_laporan_transactions(filters),
+        'top_members': get_top_member_data(),
+        'tipe_options': ['Transfer', 'Redeem', 'Package', 'Klaim'],
+        'current_url': request.get_full_path(),
+    }
+    return render(request, 'staf/laporan_transaksi.html', context)
+
+
+@login_required_staf
+def laporan_transaksi_hapus(request):
+    if request.method != 'POST':
+        return redirect('laporan_transaksi')
+
+    delete_type = request.POST.get('delete_type', '').strip()
+    key_one = request.POST.get('key_one', '').strip()
+    key_two = request.POST.get('key_two', '').strip()
+    key_three = request.POST.get('key_three', '').strip()
+    next_url = request.POST.get('next_url', '').strip() or '/laporan/'
+
+    if delete_type not in ['transfer', 'redeem', 'package']:
+        messages.error(request, 'Tipe transaksi tidak dapat dihapus.')
+        return redirect(next_url)
+
+    try:
+        with connection.cursor() as c:
+            if delete_type == 'transfer':
+                c.execute("""
+                    DELETE FROM transfer
+                    WHERE email_member_1 = %s
+                      AND email_member_2 = %s
+                      AND timestamp = %s::timestamp
+                """, [key_one, key_two, key_three])
+            elif delete_type == 'redeem':
+                c.execute("""
+                    DELETE FROM redeem
+                    WHERE email_member = %s
+                      AND kode_hadiah = %s
+                      AND timestamp = %s::timestamp
+                """, [key_one, key_two, key_three])
+            else:
+                c.execute("""
+                    DELETE FROM member_award_miles_package
+                    WHERE email_member = %s
+                      AND id_award_miles_package = %s
+                      AND timestamp = %s::timestamp
+                """, [key_one, key_two, key_three])
+
+            if c.rowcount == 0:
+                messages.error(request, 'Riwayat transaksi tidak ditemukan atau sudah terhapus.')
+            else:
+                messages.success(request, 'Riwayat transaksi berhasil dihapus permanen.')
+    except Exception as e:
+        messages.error(request, f'Gagal menghapus riwayat transaksi: {e}')
+
+    return redirect(next_url)
 
 
 # FITUR 9
@@ -158,33 +472,40 @@ def klaim_proses(request, id):
             return redirect('kelola_klaim')
 
         try:
-            with connection.cursor() as c:
-                # Update status klaim + catat email staf
-                c.execute("""
-                    UPDATE claim_missing_miles
-                    SET status_penerimaan = %s, email_staf = %s
-                    WHERE id = %s AND status_penerimaan = 'Menunggu'
-                """, [aksi, email_staf, id])
-
-            # Kalau disetujui, tambah miles ke member
-            if aksi == 'Disetujui':
-                # Hitung miles berdasarkan kelas kabin (contoh sederhana)
-                miles_map = {
-                    'Economy': 500,
-                    'Business': 1000,
-                    'First': 2000,
-                }
-                miles = miles_map.get(klaim['kelas_kabin'], 500)
-
+            tier_result = None
+            with transaction.atomic():
                 with connection.cursor() as c:
+                    # Update status klaim + catat email staf
                     c.execute("""
-                        UPDATE member
-                        SET award_miles = COALESCE(award_miles, 0) + %s,
-                            total_miles = COALESCE(total_miles, 0) + %s
-                        WHERE email = %s
-                    """, [miles, miles, klaim['email_member']])
+                        UPDATE claim_missing_miles
+                        SET status_penerimaan = %s, email_staf = %s
+                        WHERE id = %s AND status_penerimaan = 'Menunggu'
+                    """, [aksi, email_staf, id])
+
+                    # Kalau disetujui, tambah miles ke member
+                    if aksi == 'Disetujui':
+                        # Hitung miles berdasarkan kelas kabin (contoh sederhana)
+                        miles_map = {
+                            'Economy': 500,
+                            'Business': 1000,
+                            'First': 2000,
+                        }
+                        miles = miles_map.get(klaim['kelas_kabin'], 500)
+
+                        c.execute("""
+                            UPDATE member
+                            SET award_miles = COALESCE(award_miles, 0) + %s,
+                                total_miles = COALESCE(total_miles, 0) + %s
+                            WHERE email = %s
+                        """, [miles, miles, klaim['email_member']])
+                        tier_result = sync_member_tier(klaim['email_member'], cursor=c)
 
             messages.success(request, f'Klaim #{id} berhasil {aksi.lower()}.')
+            if tier_result and tier_result['updated']:
+                messages.success(
+                    request,
+                    f"Member naik tier dari {tier_result['previous_tier']['nama']} ke {tier_result['current_tier']['nama']}.",
+                )
         except Exception as e:
             messages.error(request, f'Gagal memproses klaim: {e}')
 

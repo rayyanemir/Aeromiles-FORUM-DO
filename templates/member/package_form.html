@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% block title %}Konfirmasi Pembelian Package - AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        margin-bottom: 2rem;
+    }
+
+    .page-header h1 {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.75rem;
+        font-weight: 700;
+    }
+
+    .page-header p {
+        color: var(--muted);
+        font-size: 0.92rem;
+        margin-top: 0.35rem;
+    }
+
+    .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    .card,
+    .side-card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+    }
+
+    .card {
+        padding: 1.8rem;
+    }
+
+    .side-card {
+        padding: 1.4rem;
+    }
+
+    .package-id {
+        color: var(--muted);
+        font-size: 0.84rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .package-title {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+    }
+
+    .detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin: 1.5rem 0;
+    }
+
+    .detail-box {
+        padding: 1rem;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .detail-label {
+        color: var(--muted);
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.35rem;
+    }
+
+    .detail-value {
+        color: var(--white);
+        font-weight: 600;
+        line-height: 1.5;
+    }
+
+    .highlight-box {
+        padding: 1rem 1.1rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        background: rgba(47,123,234,0.08);
+        border: 1px solid rgba(47,123,234,0.2);
+        color: #82b4f5;
+        line-height: 1.6;
+        font-size: 0.88rem;
+    }
+
+    .saldo-box {
+        padding: 1rem 1.1rem;
+        border-radius: 12px;
+        background: rgba(245,166,35,0.12);
+        border: 1px solid rgba(245,166,35,0.22);
+        margin-bottom: 1rem;
+    }
+
+    .saldo-box .label {
+        color: var(--muted);
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+    }
+
+    .saldo-box .value {
+        font-family: 'Syne', sans-serif;
+        color: var(--accent-light);
+        font-size: 2rem;
+        font-weight: 700;
+        margin-top: 0.35rem;
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-top: 1.5rem;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.78rem 1.3rem;
+        border-radius: 10px;
+        border: none;
+        text-decoration: none;
+        font-family: 'Syne', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+
+    .btn-primary {
+        background: var(--sky);
+        color: var(--white);
+    }
+
+    .btn-primary:hover {
+        background: #1a6dd4;
+        transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+        background: rgba(255,255,255,0.06);
+        color: var(--muted);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .btn-secondary:hover {
+        background: rgba(255,255,255,0.1);
+        color: var(--white);
+    }
+
+    @media (max-width: 840px) {
+        .layout {
+            grid-template-columns: 1fr;
+        }
+
+        .detail-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    .helper-text {
+        color: var(--muted);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Konfirmasi Pembelian Package</h1>
+    <p>Periksa detail package dan harga sebelum konfirmasi</p>
+</div>
+
+<div class="layout">
+    <div class="card">
+        <div class="package-id">{{ package.id }}</div>
+        <div class="package-title">{{ package.jumlah_award_miles }} Award Miles</div>
+
+        <div class="detail-grid">
+            <div class="detail-box">
+                <div class="detail-label">Jumlah Award Miles</div>
+                <div class="detail-value">{{ package.jumlah_award_miles }}</div>
+            </div>
+            <div class="detail-box">
+                <div class="detail-label">Harga Paket</div>
+                <div class="detail-value">Rp{{ package.harga_paket }}</div>
+            </div>
+            <div class="detail-box">
+                <div class="detail-label">Saldo Anda</div>
+                <div class="detail-value">{{ member_info.award_miles }} miles</div>
+            </div>
+            <div class="detail-box">
+                <div class="detail-label">Saldo Setelah Pembelian</div>
+                <div class="detail-value">{{ package.saldo_setelah_beli }} miles</div>
+            </div>
+        </div>
+        <div class="helper-text">
+            Transaksi pembelian tidak dapat di refund.
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">Konfirmasi Pembelian</button>
+                <a href="{% url 'package_list' %}" class="btn btn-secondary">Kembali</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="side-card">
+        <div class="saldo-box">
+            <div class="label">Nomor Member</div>
+            <div class="value" style="font-size: 1.3rem;">{{ member_info.nomor_member }}</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+{% block title %}Award Miles Package - AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .page-header h1 {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.75rem;
+        font-weight: 700;
+    }
+
+    .page-header p {
+        color: var(--muted);
+        font-size: 0.92rem;
+        margin-top: 0.35rem;
+    }
+
+    .saldo-card {
+        min-width: 220px;
+        padding: 1rem 1.2rem;
+        border-radius: 14px;
+        background: rgba(245,166,35,0.12);
+        border: 1px solid rgba(245,166,35,0.22);
+        text-align: right;
+    }
+
+    .saldo-card .label {
+        color: var(--muted);
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+    }
+
+    .saldo-card .value {
+        font-family: 'Syne', sans-serif;
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--accent-light);
+        margin-top: 0.35rem;
+        line-height: 1.1;
+    }
+
+    .section {
+        margin-bottom: 2rem;
+    }
+
+    .section-title {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+
+    .view-switcher {
+        display: inline-flex;
+        gap: 0.4rem;
+        padding: 0.35rem;
+        margin-bottom: 1rem;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .view-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.55rem 1rem;
+        border-radius: 999px;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.84rem;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .view-btn:hover,
+    .view-btn.active {
+        color: var(--white);
+        background: rgba(47,123,234,0.16);
+    }
+
+    .package-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1rem;
+    }
+
+    .package-card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        padding: 1.2rem;
+        display: flex;
+        flex-direction: column;
+        min-height: 240px;
+    }
+
+    .package-id {
+        color: var(--muted);
+        font-size: 0.82rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .package-miles {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--white);
+        line-height: 1.1;
+    }
+
+    .package-miles-unit {
+        color: var(--muted);
+        font-size: 0.86rem;
+        margin-top: 0.35rem;
+    }
+
+    .price-box {
+        margin: 1rem 0 1.2rem;
+        padding: 0.9rem 1rem;
+        border-radius: 12px;
+        background: rgba(47,123,234,0.08);
+        border: 1px solid rgba(47,123,234,0.2);
+    }
+
+    .price-box .label {
+        color: var(--muted);
+        font-size: 0.74rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.3rem;
+    }
+
+    .price-box .value {
+        color: #82b4f5;
+        font-family: 'Syne', sans-serif;
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+
+    .package-actions {
+        margin-top: auto;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.74rem 1rem;
+        border-radius: 10px;
+        border: none;
+        text-decoration: none;
+        font-family: 'Syne', sans-serif;
+        font-size: 0.88rem;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .btn-primary {
+        background: var(--sky);
+        color: var(--white);
+    }
+
+    .btn-primary:hover {
+        background: #1a6dd4;
+        transform: translateY(-1px);
+    }
+
+    .card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+
+    thead th {
+        text-align: left;
+        padding: 1rem 1.2rem;
+        color: var(--muted);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        font-weight: 500;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+        background: rgba(255,255,255,0.02);
+    }
+
+    tbody td {
+        padding: 1rem 1.2rem;
+        color: var(--white);
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        vertical-align: top;
+    }
+
+    tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .empty-state {
+        background: rgba(255,255,255,0.04);
+        border: 1px dashed rgba(255,255,255,0.12);
+        border-radius: 16px;
+        padding: 2rem;
+        text-align: center;
+        color: var(--muted);
+    }
+
+    @media (max-width: 720px) {
+        .page-header {
+            flex-direction: column;
+        }
+
+        .saldo-card {
+            width: 100%;
+            text-align: left;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Award Miles Package</h1>
+        <p>Beli package sebanyak mungkin untuk menambah award miles milikmu</p>
+    </div>
+    <div class="saldo-card">
+        <div class="label">Award Miles Anda</div>
+        <div class="value">{{ member_info.award_miles }}</div>
+    </div>
+</div>
+
+<div class="view-switcher">
+    <a href="#katalog-package" class="view-btn active" data-view-btn="katalog">Katalog Package</a>
+    <a href="#riwayat-package" class="view-btn" data-view-btn="riwayat">Riwayat Pembelian</a>
+</div>
+
+<section class="section" id="katalog-package" data-view-section="katalog">
+    <div class="section-title">Katalog Package</div>
+
+    {% if package_list %}
+        <div class="package-grid">
+            {% for package in package_list %}
+                <article class="package-card">
+                    <div class="package-id">{{ package.id }}</div>
+                    <div class="package-miles">{{ package.jumlah_award_miles }}</div>
+                    <div class="package-miles-unit">award miles</div>
+
+                    <div class="price-box">
+                        <div class="label">Harga Paket</div>
+                        <div class="value">Rp{{ package.harga_paket }}</div>
+                    </div>
+
+                    <div class="package-actions">
+                        <a href="{% url 'package_beli' package.id %}" class="btn btn-primary">Beli Package</a>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">Belum ada package yang tersedia.</div>
+    {% endif %}
+</section>
+
+<section class="section" id="riwayat-package" data-view-section="riwayat" style="display: none;">
+    <div class="section-title">Riwayat Pembelian Package</div>
+
+    {% if riwayat_package %}
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Waktu</th>
+                        <th>ID Paket</th>
+                        <th>Award Miles</th>
+                        <th>Harga</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in riwayat_package %}
+                        <tr>
+                            <td style="color: var(--muted); font-size: 0.82rem;">{{ item.timestamp|date:"d M Y H:i" }}</td>
+                            <td>{{ item.id }}</td>
+                            <td>{{ item.jumlah_award_miles }}</td>
+                            <td style="color: var(--muted);">Rp{{ item.harga_paket }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state">Belum ada riwayat pembelian package.</div>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (() => {
+        const buttons = document.querySelectorAll('[data-view-btn]');
+        const sections = document.querySelectorAll('[data-view-section]');
+
+        function setActiveView(view) {
+            buttons.forEach((button) => {
+                button.classList.toggle('active', button.dataset.viewBtn === view);
+            });
+
+            sections.forEach((section) => {
+                section.style.display = section.dataset.viewSection === view ? '' : 'none';
+            });
+        }
+
+        buttons.forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                setActiveView(button.dataset.viewBtn);
+                history.replaceState({}, '', button.getAttribute('href'));
+            });
+        });
+
+        const initialView = window.location.hash === '#riwayat-package' ? 'riwayat' : 'katalog';
+        setActiveView(initialView);
+    })();
+</script>
+{% endblock %}

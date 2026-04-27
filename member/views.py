@@ -1,7 +1,8 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
-from django.db import connection
-from datetime import datetime
+from django.db import connection, transaction
+from datetime import date, datetime
+from .tier_logic import sync_member_tier
 
 
 def login_required_member(view_func):
@@ -64,6 +65,247 @@ def get_klaim_list(email, status_filter=''):
         'nomor_tiket':         r[11],
         'pnr':                 r[12],
     } for r in rows]
+
+
+def get_member_miles(email):
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT nomor_member, COALESCE(award_miles, 0), COALESCE(total_miles, 0)
+            FROM member
+            WHERE email = %s
+        """, [email])
+        row = c.fetchone()
+
+    if not row:
+        return None
+
+    return {
+        'nomor_member': row[0],
+        'award_miles': row[1],
+        'total_miles': row[2],
+    }
+
+
+def get_redeem_catalog(email):
+    today = date.today()
+
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT h.kode_hadiah,
+                   h.nama,
+                   h.miles,
+                   h.deskripsi,
+                   h.valid_start_date,
+                   h.program_end,
+                   COALESCE(mt.nama_mitra, mk.nama_maskapai, 'Penyedia #' || h.id_penyedia::text) AS penyedia,
+                   EXISTS (
+                       SELECT 1
+                       FROM redeem r
+                       WHERE r.email_member = %s
+                         AND r.kode_hadiah = h.kode_hadiah
+                   ) AS pernah_redeem
+            FROM hadiah h
+            LEFT JOIN mitra mt ON h.id_penyedia = mt.id_penyedia
+            LEFT JOIN maskapai mk ON h.id_penyedia = mk.id_penyedia
+            ORDER BY h.program_end ASC, h.miles ASC, h.nama ASC
+        """, [email])
+        rows = c.fetchall()
+
+    hadiah_list = []
+    for row in rows:
+        hadiah = {
+            'kode_hadiah': row[0],
+            'nama': row[1],
+            'miles': row[2],
+            'deskripsi': row[3],
+            'valid_start_date': row[4],
+            'program_end': row[5],
+            'penyedia': row[6],
+            'pernah_redeem': row[7],
+        }
+
+        if today < hadiah['valid_start_date']:
+            hadiah['status'] = 'akan_datang'
+            hadiah['status_label'] = 'Akan Datang'
+        elif today > hadiah['program_end']:
+            hadiah['status'] = 'berakhir'
+            hadiah['status_label'] = 'Berakhir'
+        else:
+            hadiah['status'] = 'tersedia'
+            hadiah['status_label'] = 'Tersedia'
+
+        hadiah_list.append(hadiah)
+
+    return hadiah_list
+
+
+def get_redeem_history(email):
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT r.timestamp,
+                   h.kode_hadiah,
+                   h.nama,
+                   h.miles,
+                   COALESCE(mt.nama_mitra, mk.nama_maskapai, 'Penyedia #' || h.id_penyedia::text) AS penyedia
+            FROM redeem r
+            JOIN hadiah h ON r.kode_hadiah = h.kode_hadiah
+            LEFT JOIN mitra mt ON h.id_penyedia = mt.id_penyedia
+            LEFT JOIN maskapai mk ON h.id_penyedia = mk.id_penyedia
+            WHERE r.email_member = %s
+            ORDER BY r.timestamp DESC
+        """, [email])
+        rows = c.fetchall()
+
+    return [{
+        'timestamp': row[0],
+        'kode_hadiah': row[1],
+        'nama': row[2],
+        'miles': row[3],
+        'penyedia': row[4],
+    } for row in rows]
+
+
+def get_package_catalog():
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT id, jumlah_award_miles, harga_paket
+            FROM award_miles_package
+            ORDER BY jumlah_award_miles ASC, harga_paket ASC
+        """)
+        rows = c.fetchall()
+
+    return [{
+        'id': row[0],
+        'jumlah_award_miles': row[1],
+        'harga_paket': row[2],
+    } for row in rows]
+
+
+def get_package_history(email):
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT mp.timestamp,
+                   amp.id,
+                   amp.jumlah_award_miles,
+                   amp.harga_paket
+            FROM member_award_miles_package mp
+            JOIN award_miles_package amp
+              ON mp.id_award_miles_package = amp.id
+            WHERE mp.email_member = %s
+            ORDER BY mp.timestamp DESC
+        """, [email])
+        rows = c.fetchall()
+
+    return [{
+        'timestamp': row[0],
+        'id': row[1],
+        'jumlah_award_miles': row[2],
+        'harga_paket': row[3],
+    } for row in rows]
+
+
+def get_tier_information(email):
+    benefits_map = {
+        'Blue': [
+            'Akumulasi miles dasar',
+            'Akses penawaran khusus member',
+        ],
+        'Silver': [
+            'Bonus miles 25%',
+            'Priority check-in',
+            'Akses lounge partner',
+        ],
+        'Gold': [
+            'Bonus miles 50%',
+            'Priority boarding',
+            'Akses lounge premium',
+            'Extra bagasi 10kg',
+        ],
+        'Platinum': [
+            'Bonus miles 100%',
+            'Upgrade gratis (subject to availability)',
+            'Akses lounge first class',
+            'Extra bagasi 20kg',
+            'Dedicated hotline',
+        ],
+    }
+
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT m.id_tier,
+                   COALESCE(m.total_miles, 0),
+                   COALESCE(m.award_miles, 0),
+                   t.nama
+            FROM member m
+            JOIN tier t ON m.id_tier = t.id_tier
+            WHERE m.email = %s
+        """, [email])
+        member_row = c.fetchone()
+
+    if not member_row:
+        return None
+
+    current_tier_id = member_row[0]
+    total_miles = member_row[1]
+    award_miles = member_row[2]
+    current_tier_name = member_row[3]
+
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT id_tier, nama, minimal_frekuensi_terbang, minimal_tier_miles
+            FROM tier
+            ORDER BY minimal_tier_miles ASC, minimal_frekuensi_terbang ASC
+        """)
+        rows = c.fetchall()
+
+    tiers = []
+    for row in rows:
+        tiers.append({
+            'id_tier': row[0],
+            'nama': row[1],
+            'minimal_frekuensi_terbang': row[2],
+            'minimal_tier_miles': row[3],
+            'benefits': benefits_map.get(row[1], []),
+            'is_current': row[0] == current_tier_id,
+        })
+
+    current_index = next(
+        (index for index, tier in enumerate(tiers) if tier['id_tier'] == current_tier_id),
+        0,
+    )
+    current_tier = tiers[current_index]
+    next_tier = tiers[current_index + 1] if current_index + 1 < len(tiers) else None
+    previous_threshold = tiers[current_index - 1]['minimal_tier_miles'] if current_index > 0 else 0
+
+    progress = {
+        'current_tier_name': current_tier_name,
+        'total_miles': total_miles,
+        'award_miles': award_miles,
+        'next_tier': next_tier,
+        'miles_to_next_tier': 0,
+        'percent': 100,
+        'range_start': previous_threshold,
+        'range_end': current_tier['minimal_tier_miles'],
+    }
+
+    if next_tier:
+        range_start = current_tier['minimal_tier_miles']
+        range_end = next_tier['minimal_tier_miles']
+        range_size = max(range_end - range_start, 1)
+        current_progress = min(max(total_miles - range_start, 0), range_size)
+
+        progress.update({
+            'next_tier': next_tier,
+            'miles_to_next_tier': max(next_tier['minimal_tier_miles'] - total_miles, 0),
+            'percent': round((current_progress / range_size) * 100, 2),
+            'range_start': range_start,
+            'range_end': range_end,
+        })
+
+    return {
+        'tiers': tiers,
+        'progress': progress,
+    }
 
 
 # FITUR 8
@@ -273,6 +515,206 @@ def klaim_hapus(request, id):
         'maskapai':      detail[1],
         'tanggal':       detail[2],
     })
+
+
+# FITUR 9
+
+@login_required_member
+def redeem_list(request):
+    email = request.session['user_email']
+    member_info = get_member_miles(email)
+
+    if not member_info:
+        messages.error(request, 'Data member tidak ditemukan.')
+        return redirect('dashboard')
+
+    hadiah_list = [
+        item for item in get_redeem_catalog(email)
+        if item['status'] != 'berakhir'
+    ]
+    riwayat_redeem = get_redeem_history(email)
+
+    for hadiah in hadiah_list:
+        hadiah['selisih_miles'] = hadiah['miles'] - member_info['award_miles']
+
+    status_filter = request.GET.get('status', '').strip().lower()
+    valid_statuses = {'tersedia', 'akan_datang'}
+    if status_filter in valid_statuses:
+        hadiah_list = [item for item in hadiah_list if item['status'] == status_filter]
+    else:
+        status_filter = ''
+
+    return render(request, 'member/redeem_list.html', {
+        'member_info': member_info,
+        'hadiah_list': hadiah_list,
+        'riwayat_redeem': riwayat_redeem,
+        'status_filter': status_filter,
+        'today': date.today(),
+    })
+
+
+@login_required_member
+def redeem_buat(request, kode_hadiah):
+    email = request.session['user_email']
+    member_info = get_member_miles(email)
+
+    if not member_info:
+        messages.error(request, 'Data member tidak ditemukan.')
+        return redirect('dashboard')
+
+    hadiah = next(
+        (item for item in get_redeem_catalog(email) if item['kode_hadiah'] == kode_hadiah),
+        None,
+    )
+
+    if not hadiah:
+        messages.error(request, 'Hadiah tidak ditemukan.')
+        return redirect('redeem_list')
+
+    hadiah['sisa_setelah_redeem'] = member_info['award_miles'] - hadiah['miles']
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                with connection.cursor() as c:
+                    c.execute("""
+                        SELECT COALESCE(award_miles, 0)
+                        FROM member
+                        WHERE email = %s
+                        FOR UPDATE
+                    """, [email])
+                    row = c.fetchone()
+
+                if not row:
+                    messages.error(request, 'Data member tidak ditemukan.')
+                    return redirect('redeem_list')
+
+                award_miles = row[0]
+                today = date.today()
+
+                if today < hadiah['valid_start_date']:
+                    messages.error(request, 'Program hadiah ini belum dimulai.')
+                    return redirect('redeem_buat', kode_hadiah=kode_hadiah)
+
+                if today > hadiah['program_end']:
+                    messages.error(request, 'Program hadiah ini sudah berakhir.')
+                    return redirect('redeem_buat', kode_hadiah=kode_hadiah)
+
+                if award_miles < hadiah['miles']:
+                    messages.error(
+                        request,
+                        f"Award miles tidak mencukupi. Butuh {hadiah['miles']} miles, saldo kamu {award_miles} miles.",
+                    )
+                    return redirect('redeem_buat', kode_hadiah=kode_hadiah)
+
+                with connection.cursor() as c:
+                    c.execute("""
+                        INSERT INTO redeem (email_member, kode_hadiah, timestamp)
+                        VALUES (%s, %s, NOW())
+                    """, [email, kode_hadiah])
+                    c.execute("""
+                        UPDATE member
+                        SET award_miles = COALESCE(award_miles, 0) - %s
+                        WHERE email = %s
+                    """, [hadiah['miles'], email])
+
+            messages.success(request, f"Redeem hadiah '{hadiah['nama']}' berhasil diproses.")
+            return redirect('redeem_list')
+        except Exception as e:
+            messages.error(request, f'Gagal memproses redeem: {e}')
+
+    return render(request, 'member/redeem_form.html', {
+        'member_info': member_info,
+        'hadiah': hadiah,
+        'today': date.today(),
+    })
+
+
+#  FITUR 10
+
+@login_required_member
+def package_list(request):
+    email = request.session['user_email']
+    member_info = get_member_miles(email)
+
+    if not member_info:
+        messages.error(request, 'Data member tidak ditemukan.')
+        return redirect('dashboard')
+
+    package_list = get_package_catalog()
+    riwayat_package = get_package_history(email)
+
+    return render(request, 'member/package_list.html', {
+        'member_info': member_info,
+        'package_list': package_list,
+        'riwayat_package': riwayat_package,
+    })
+
+
+@login_required_member
+def package_beli(request, package_id):
+    email = request.session['user_email']
+    member_info = get_member_miles(email)
+
+    if not member_info:
+        messages.error(request, 'Data member tidak ditemukan.')
+        return redirect('dashboard')
+
+    selected_package = next(
+        (item for item in get_package_catalog() if item['id'] == package_id),
+        None,
+    )
+
+    if not selected_package:
+        messages.error(request, 'Package tidak ditemukan.')
+        return redirect('package_list')
+
+    selected_package['saldo_setelah_beli'] = (
+        member_info['award_miles'] + selected_package['jumlah_award_miles']
+    )
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                with connection.cursor() as c:
+                    c.execute("""
+                        INSERT INTO member_award_miles_package
+                            (id_award_miles_package, email_member, timestamp)
+                        VALUES (%s, %s, NOW())
+                    """, [package_id, email])
+                    c.execute("""
+                        UPDATE member
+                        SET award_miles = COALESCE(award_miles, 0) + %s
+                        WHERE email = %s
+                    """, [selected_package['jumlah_award_miles'], email])
+
+            messages.success(
+                request,
+                f"Pembelian package '{selected_package['id']}' berhasil. Award miles bertambah {selected_package['jumlah_award_miles']}.",
+            )
+            return redirect('package_list')
+        except Exception as e:
+            messages.error(request, f'Gagal memproses pembelian package: {e}')
+
+    return render(request, 'member/package_form.html', {
+        'member_info': member_info,
+        'package': selected_package,
+    })
+
+
+# FITUR 11
+
+@login_required_member
+def tier_info(request):
+    email = request.session['user_email']
+    sync_member_tier(email)
+    tier_info_data = get_tier_information(email)
+
+    if not tier_info_data:
+        messages.error(request, 'Data member tidak ditemukan.')
+        return redirect('dashboard')
+
+    return render(request, 'member/tier_info.html', tier_info_data)
 
 
 #  FITUR 10

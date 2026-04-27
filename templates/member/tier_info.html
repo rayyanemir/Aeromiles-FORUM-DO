@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+{% block title %}Info Tier - AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-shell {
+        max-width: 920px;
+        margin: 0 auto;
+    }
+
+    .page-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .page-header h1 {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--white);
+    }
+
+    .page-header p {
+        margin-top: 0.35rem;
+        color: var(--muted);
+        font-size: 0.92rem;
+    }
+
+    .progress-card,
+    .tier-card {
+        background: rgba(255,255,255,0.96);
+        color: #102341;
+        border-radius: 16px;
+        border: 1px solid rgba(47,123,234,0.18);
+        box-shadow: 0 12px 28px rgba(8, 20, 54, 0.12);
+    }
+
+    .progress-card {
+        padding: 1.3rem 1.4rem;
+        margin-bottom: 1rem;
+    }
+
+    .progress-title {
+        font-family: 'Syne', sans-serif;
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+
+    .progress-meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+        font-size: 0.84rem;
+        color: #5f6d84;
+        margin-bottom: 0.7rem;
+    }
+
+    .progress-track {
+        width: 100%;
+        height: 12px;
+        border-radius: 999px;
+        background: #dce5f3;
+        overflow: hidden;
+    }
+
+    .progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #1a3a8f 0%, #2f7bea 100%);
+    }
+
+    .progress-footnote {
+        margin-top: 0.7rem;
+        font-size: 0.84rem;
+        color: #5f6d84;
+    }
+
+    .tier-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .tier-card {
+        padding: 1.25rem 1.35rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .tier-card.current {
+        background: linear-gradient(180deg, rgba(245,166,35,0.14) 0%, rgba(255,255,255,0.96) 100%);
+        border: 2px solid rgba(245,166,35,0.95);
+        box-shadow: 0 16px 30px rgba(245,166,35,0.14);
+    }
+
+    .tier-top {
+        display: flex;
+        align-items: center;
+        gap: 0.9rem;
+        margin-bottom: 1rem;
+    }
+
+    .tier-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #fff;
+        flex-shrink: 0;
+    }
+
+    .tier-icon.blue { background: #2f7bea; }
+    .tier-icon.silver { background: #8c99b3; }
+    .tier-icon.gold { background: #d59a16; }
+    .tier-icon.platinum { background: #171f3f; }
+
+    .tier-main {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .tier-name-row {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.25rem;
+    }
+
+    .tier-name {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.08rem;
+        font-weight: 700;
+    }
+
+    .current-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.22rem 0.55rem;
+        border-radius: 999px;
+        background: rgba(47,123,234,0.14);
+        color: #2f7bea;
+        font-size: 0.72rem;
+        font-weight: 700;
+    }
+
+    .tier-threshold {
+        color: #5f6d84;
+        font-size: 0.85rem;
+    }
+
+    .benefit-title {
+        font-size: 0.84rem;
+        font-weight: 700;
+        margin-bottom: 0.55rem;
+    }
+
+    .benefit-list {
+        list-style: none;
+        display: grid;
+        gap: 0.45rem;
+    }
+
+    .benefit-list li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.55rem;
+        color: #24344f;
+        font-size: 0.85rem;
+        line-height: 1.45;
+    }
+
+    .benefit-list li::before {
+        content: '✓';
+        color: #4ca66a;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    @media (max-width: 640px) {
+        .progress-meta {
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .tier-top {
+            align-items: flex-start;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-shell">
+    <div class="page-header">
+        <h1>Info Tier</h1>
+        <p>Lakukan lebih banyak lagi penerbangan untuk mendapatkan benefit terbaik</p>
+    </div>
+
+    <section class="progress-card">
+        {% if progress.next_tier %}
+            <div class="progress-title">Progress ke Tier Berikutnya: {{ progress.next_tier.nama }}</div>
+            <div class="progress-meta">
+                <span>Total Miles</span>
+                <span>{{ progress.total_miles }} / {{ progress.next_tier.minimal_tier_miles }}</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" style="width: {{ progress.percent }}%;"></div>
+            </div>
+            <div class="progress-footnote">
+                Butuh {{ progress.miles_to_next_tier }} miles lagi untuk naik dari {{ progress.current_tier_name }} ke {{ progress.next_tier.nama }}.
+            </div>
+        {% else %}
+            <div class="progress-title">Kamu sudah berada di tier tertinggi</div>
+            <div class="progress-meta">
+                <span>Total Miles</span>
+                <span>{{ progress.total_miles }}</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" style="width: 100%;"></div>
+            </div>
+            <div class="progress-footnote">
+                Selamat, kamu sudah berada di tier {{ progress.current_tier_name }}.
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="tier-stack">
+        {% for tier in tiers %}
+            <article class="tier-card {% if tier.is_current %}current{% endif %}">
+                <div class="tier-top">
+                    <div class="tier-icon {{ tier.nama|lower }}">{{ tier.nama|slice:":1" }}</div>
+                    <div class="tier-main">
+                        <div class="tier-name-row">
+                            <div class="tier-name">{{ tier.nama }}</div>
+                            {% if tier.is_current %}
+                                <span class="current-badge">Tier Anda</span>
+                            {% endif %}
+                        </div>
+                        <div class="tier-threshold">
+                            Min. {{ tier.minimal_frekuensi_terbang }} penerbangan - Min. {{ tier.minimal_tier_miles }} miles
+                        </div>
+                    </div>
+                </div>
+
+                <div class="benefit-title">Keuntungan:</div>
+                <ul class="benefit-list">
+                    {% for benefit in tier.benefits %}
+                        <li>{{ benefit }}</li>
+                    {% endfor %}
+                </ul>
+            </article>
+        {% endfor %}
+    </section>
+</div>
+{% endblock %}

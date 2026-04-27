@@ -1,0 +1,603 @@
+{% extends 'base.html' %}
+{% block title %}Laporan Transaksi - AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .page-header h1 {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.75rem;
+        font-weight: 700;
+    }
+
+    .page-header p {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-top: 0.25rem;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.35rem;
+    }
+
+    .stat-card,
+    .panel {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        box-shadow: 0 12px 28px rgba(7, 14, 36, 0.08);
+    }
+
+    .stat-card {
+        padding: 1rem 1.1rem;
+    }
+
+    .stat-label {
+        color: var(--muted);
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.45rem;
+    }
+
+    .stat-value {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.7rem;
+        font-weight: 700;
+        color: var(--white);
+    }
+
+    .tabs {
+        display: inline-flex;
+        gap: 0.35rem;
+        padding: 0.3rem;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        margin-bottom: 1rem;
+    }
+
+    .tab-link {
+        padding: 0.52rem 0.95rem;
+        border-radius: 999px;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.84rem;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .tab-link:hover,
+    .tab-link.active {
+        color: var(--white);
+        background: rgba(47,123,234,0.16);
+    }
+
+    .filter-bar {
+        padding: 1rem 1.1rem 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.9rem;
+        align-items: flex-end;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        min-width: 150px;
+    }
+
+    .filter-group label {
+        color: var(--muted);
+        font-size: 0.74rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 500;
+    }
+
+    .filter-group select,
+    .filter-group input {
+        padding: 0.62rem 0.9rem;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px;
+        color: var(--white);
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.85rem;
+        outline: none;
+    }
+
+    .filter-group select {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        padding-right: 2.6rem;
+        background-image:
+            linear-gradient(45deg, transparent 50%, rgba(248,249,255,0.75) 50%),
+            linear-gradient(135deg, rgba(248,249,255,0.75) 50%, transparent 50%);
+        background-position:
+            calc(100% - 18px) calc(50% - 3px),
+            calc(100% - 12px) calc(50% - 3px);
+        background-size: 6px 6px, 6px 6px;
+        background-repeat: no-repeat;
+        cursor: pointer;
+    }
+
+    .filter-group select:focus,
+    .filter-group input:focus {
+        border-color: rgba(47,123,234,0.45);
+        background-color: rgba(47,123,234,0.08);
+        box-shadow: 0 0 0 3px rgba(47,123,234,0.12);
+    }
+
+    .filter-group select option {
+        background: #111936;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.62rem 1rem;
+        border-radius: 10px;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        font-family: 'Syne', sans-serif;
+        font-size: 0.84rem;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .btn-primary {
+        background: var(--sky);
+        color: var(--white);
+    }
+
+    .btn-primary:hover {
+        background: #1a6dd4;
+    }
+
+    .btn-secondary {
+        background: rgba(255,255,255,0.06);
+        color: var(--muted);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .btn-secondary:hover {
+        color: var(--white);
+        background: rgba(255,255,255,0.1);
+    }
+
+    .table-wrap {
+        padding: 1rem 1.1rem 1.1rem;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+
+    thead th {
+        text-align: left;
+        padding: 0.95rem 0.9rem;
+        color: var(--muted);
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        font-weight: 500;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+        background: rgba(255,255,255,0.02);
+        white-space: nowrap;
+    }
+
+    tbody td {
+        padding: 0.95rem 0.9rem;
+        color: var(--white);
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        vertical-align: middle;
+    }
+
+    tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .tx-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.28rem 0.7rem;
+        border-radius: 999px;
+        font-size: 0.74rem;
+        font-weight: 600;
+    }
+
+    .tx-transfer { background: rgba(255,107,107,0.12); color: #ff9999; }
+    .tx-redeem { background: rgba(245,166,35,0.12); color: var(--accent-light); }
+    .tx-package { background: rgba(80,200,120,0.12); color: #7debb0; }
+    .tx-klaim { background: rgba(47,123,234,0.12); color: #82b4f5; }
+
+    .miles-positive {
+        color: #7debb0;
+        font-weight: 700;
+    }
+
+    .miles-negative {
+        color: #ff9999;
+        font-weight: 700;
+    }
+
+    .icon-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,107,107,0.22);
+        background: rgba(255,107,107,0.08);
+        color: #ff9999;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+
+    .icon-btn:hover {
+        background: rgba(255,107,107,0.16);
+    }
+
+    .icon-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+    }
+
+    .empty-state {
+        text-align: center;
+        color: var(--muted);
+        padding: 3rem 1rem;
+    }
+
+    .top-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .top-card {
+        padding: 1.1rem;
+    }
+
+    .top-title {
+        font-family: 'Syne', sans-serif;
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 0.9rem;
+    }
+
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(6, 10, 24, 0.68);
+        backdrop-filter: blur(4px);
+        z-index: 30;
+        padding: 1rem;
+    }
+
+    .modal-backdrop.show {
+        display: flex;
+    }
+
+    .modal-card {
+        width: min(100%, 430px);
+        background: #ffffff;
+        color: #13233e;
+        border-radius: 14px;
+        padding: 1.3rem;
+        box-shadow: 0 20px 44px rgba(3, 8, 23, 0.28);
+    }
+
+    .modal-card h3 {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .modal-card p {
+        color: #5f6d84;
+        font-size: 0.9rem;
+        line-height: 1.55;
+    }
+
+    .modal-actions {
+        margin-top: 1.2rem;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.7rem;
+    }
+
+    @media (max-width: 860px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Laporan & Riwayat Transaksi</h1>
+    <p>Pantau aktivitas miles seluruh member, lihat statistik penting, dan kelola riwayat transaksi</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Miles Beredar</div>
+        <div class="stat-value">{{ stats.total_miles_beredar }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total Redeem Bulan Ini</div>
+        <div class="stat-value">{{ stats.total_redeem_bulan_ini }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total Klaim Disetujui</div>
+        <div class="stat-value">{{ stats.total_klaim_disetujui }}</div>
+    </div>
+</div>
+
+<div class="tabs">
+    <a href="{% url 'laporan_transaksi' %}?tab=riwayat" class="tab-link {% if filters.tab == 'riwayat' %}active{% endif %}">Riwayat Transaksi</a>
+    <a href="{% url 'laporan_transaksi' %}?tab=top-member" class="tab-link {% if filters.tab == 'top-member' %}active{% endif %}">Top Member</a>
+</div>
+
+{% if filters.tab == 'riwayat' %}
+    <div class="panel">
+        <form method="GET">
+            <input type="hidden" name="tab" value="riwayat">
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <label>Tipe</label>
+                    <select name="tipe">
+                        <option value="">Semua Tipe</option>
+                        {% for tipe in tipe_options %}
+                            <option value="{{ tipe }}" {% if filters.tipe == tipe %}selected{% endif %}>{{ tipe }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Member</label>
+                    <input type="text" name="member" value="{{ filters.member }}" placeholder="Nama atau email member">
+                </div>
+                <div class="filter-group">
+                    <label>Tanggal Dari</label>
+                    <input type="date" name="tgl_dari" value="{{ filters.tgl_dari }}">
+                </div>
+                <div class="filter-group">
+                    <label>Tanggal Sampai</label>
+                    <input type="date" name="tgl_sampai" value="{{ filters.tgl_sampai }}">
+                </div>
+                <button type="submit" class="btn btn-primary">Filter</button>
+                <a href="{% url 'laporan_transaksi' %}?tab=riwayat" class="btn btn-secondary">Reset</a>
+            </div>
+        </form>
+
+        <div class="table-wrap">
+            {% if transactions %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tipe Transaksi</th>
+                            <th>Member</th>
+                            <th>Jumlah Miles</th>
+                            <th>Timestamp</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in transactions %}
+                            <tr>
+                                <td>
+                                    {% if item.tipe == 'Transfer' %}
+                                        <span class="tx-badge tx-transfer">Transfer</span>
+                                    {% elif item.tipe == 'Redeem' %}
+                                        <span class="tx-badge tx-redeem">Redeem</span>
+                                    {% elif item.tipe == 'Package' %}
+                                        <span class="tx-badge tx-package">Package</span>
+                                    {% else %}
+                                        <span class="tx-badge tx-klaim">Klaim</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div>{{ item.member_nama }}</div>
+                                    <div style="font-size: 0.78rem; color: var(--muted); margin-top: 0.18rem;">{{ item.member_email }}</div>
+                                </td>
+                                <td>
+                                    <span class="{% if item.miles >= 0 %}miles-positive{% else %}miles-negative{% endif %}">
+                                        {% if item.miles >= 0 %}+{% endif %}{{ item.miles }}
+                                    </span>
+                                </td>
+                                <td style="color: var(--muted); font-size: 0.82rem;">{{ item.waktu|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    {% if item.bisa_hapus %}
+                                        <button
+                                            type="button"
+                                            class="icon-btn js-delete-trigger"
+                                            data-delete-type="{{ item.delete_type }}"
+                                            data-key-one="{{ item.key_one }}"
+                                            data-key-two="{{ item.key_two }}"
+                                            data-key-three="{{ item.key_three }}"
+                                        >
+                                            🗑
+                                        </button>
+                                    {% else %}
+                                        <button type="button" class="icon-btn" disabled title="Riwayat klaim disetujui tidak dapat dihapus">🔒</button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-state">Tidak ada transaksi yang cocok dengan filter saat ini.</div>
+            {% endif %}
+        </div>
+    </div>
+{% else %}
+    <div class="top-grid">
+        <div class="panel top-card">
+            <div class="top-title">Top Member berdasarkan Total Miles</div>
+            {% if top_members.top_total_miles %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Member</th>
+                            <th>Total Miles</th>
+                            <th>Jumlah Transaksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in top_members.top_total_miles %}
+                            <tr>
+                                <td>{{ item.ranking }}</td>
+                                <td>
+                                    <div>{{ item.member_nama }}</div>
+                                    <div style="font-size: 0.78rem; color: var(--muted); margin-top: 0.18rem;">{{ item.member_email }}</div>
+                                </td>
+                                <td>{{ item.total_miles }}</td>
+                                <td>{{ item.jumlah_transaksi }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-state">Belum ada data member.</div>
+            {% endif %}
+        </div>
+
+        <div class="panel top-card">
+            <div class="top-title">Top Member paling aktif Transfer</div>
+            {% if top_members.top_transfer %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Member</th>
+                            <th>Jumlah Transfer</th>
+                            <th>Total Miles Transfer</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in top_members.top_transfer %}
+                            <tr>
+                                <td>{{ item.ranking }}</td>
+                                <td>
+                                    <div>{{ item.member_nama }}</div>
+                                    <div style="font-size: 0.78rem; color: var(--muted); margin-top: 0.18rem;">{{ item.member_email }}</div>
+                                </td>
+                                <td>{{ item.jumlah_transfer }}</td>
+                                <td>{{ item.total_miles_transfer }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-state">Belum ada data transfer.</div>
+            {% endif %}
+        </div>
+
+        <div class="panel top-card">
+            <div class="top-title">Top Member paling aktif Redeem</div>
+            {% if top_members.top_redeem %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Member</th>
+                            <th>Jumlah Redeem</th>
+                            <th>Total Miles Redeem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in top_members.top_redeem %}
+                            <tr>
+                                <td>{{ item.ranking }}</td>
+                                <td>
+                                    <div>{{ item.member_nama }}</div>
+                                    <div style="font-size: 0.78rem; color: var(--muted); margin-top: 0.18rem;">{{ item.member_email }}</div>
+                                </td>
+                                <td>{{ item.jumlah_redeem }}</td>
+                                <td>{{ item.total_miles_redeem }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-state">Belum ada data redeem.</div>
+            {% endif %}
+        </div>
+    </div>
+{% endif %}
+
+<div class="modal-backdrop" id="delete-modal">
+    <div class="modal-card">
+        <h3>Hapus Riwayat?</h3>
+        <p>Penghapusan riwayat transaksi bersifat permanen dan tidak dapat dibatalkan</p>
+        <form method="POST" action="{% url 'laporan_transaksi_hapus' %}">
+            {% csrf_token %}
+            <input type="hidden" name="delete_type" id="delete-type-input">
+            <input type="hidden" name="key_one" id="delete-key-one-input">
+            <input type="hidden" name="key_two" id="delete-key-two-input">
+            <input type="hidden" name="key_three" id="delete-key-three-input">
+            <input type="hidden" name="next_url" value="{{ current_url }}">
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="delete-cancel-btn">Batal</button>
+                <button type="submit" class="btn btn-primary">Hapus</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (() => {
+        const modal = document.getElementById('delete-modal');
+        const cancelButton = document.getElementById('delete-cancel-btn');
+        const typeInput = document.getElementById('delete-type-input');
+        const keyOneInput = document.getElementById('delete-key-one-input');
+        const keyTwoInput = document.getElementById('delete-key-two-input');
+        const keyThreeInput = document.getElementById('delete-key-three-input');
+
+        function closeModal() {
+            modal.classList.remove('show');
+        }
+
+        document.querySelectorAll('.js-delete-trigger').forEach((button) => {
+            button.addEventListener('click', () => {
+                typeInput.value = button.dataset.deleteType;
+                keyOneInput.value = button.dataset.keyOne;
+                keyTwoInput.value = button.dataset.keyTwo;
+                keyThreeInput.value = button.dataset.keyThree;
+                modal.classList.add('show');
+            });
+        });
+
+        cancelButton.addEventListener('click', closeModal);
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+    })();
+</script>
+{% endblock %}

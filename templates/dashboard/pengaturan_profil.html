@@ -200,6 +200,37 @@
         box-shadow: 0 8px 24px rgba(47,123,234,0.3);
     }
 
+    .btn-primary:disabled {
+        opacity: 0.7;
+        cursor: wait;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .ajax-feedback {
+        display: none;
+        margin-bottom: 1rem;
+        padding: 0.85rem 1rem;
+        border-radius: 10px;
+        font-size: 0.9rem;
+    }
+
+    .ajax-feedback.show {
+        display: block;
+    }
+
+    .ajax-feedback.success {
+        background: rgba(80, 200, 120, 0.12);
+        border: 1px solid rgba(80, 200, 120, 0.3);
+        color: #7debb0;
+    }
+
+    .ajax-feedback.error {
+        background: rgba(255, 107, 107, 0.12);
+        border: 1px solid rgba(255, 107, 107, 0.3);
+        color: #ff9999;
+    }
+
     @media (max-width: 700px) {
         .form-grid {
             grid-template-columns: 1fr;
@@ -229,10 +260,10 @@
 <div class="profile-layout">
     <div class="stack">
         <div class="card">
-            <div class="card-title">Profil Saat Ini</div>
-            <div class="profile-avatar">{{ pengguna.first_mid_name|first|upper }}</div>
-            <div class="profile-name">{{ pengguna.nama_lengkap }}</div>
-            <div class="profile-email">{{ pengguna.email }}</div>
+            <div class="card-title">Profil Saya</div>
+            <div class="profile-avatar" id="profile-avatar">{{ pengguna.first_mid_name|first|upper }}</div>
+            <div class="profile-name" id="profile-name">{{ pengguna.nama_lengkap }}</div>
+            <div class="profile-email" id="profile-email">{{ pengguna.email }}</div>
 
             <div class="info-list">
                 {% if role == 'member' and member %}
@@ -251,7 +282,7 @@
                     </div>
                     <div class="info-row">
                         <span class="label">Maskapai</span>
-                        <span class="value">{{ staf.nama_maskapai }}</span>
+                        <span class="value" id="profile-maskapai">{{ staf.nama_maskapai }}</span>
                     </div>
                 {% endif %}
                 <div class="info-row">
@@ -265,7 +296,8 @@
     <div class="stack">
         <div class="card">
             <div class="card-title">Data Profil</div>
-            <form method="POST">
+            <div class="ajax-feedback" id="profile-feedback"></div>
+            <form method="POST" id="profile-form">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="update_profile">
 
@@ -342,8 +374,6 @@
                     {% endif %}
                 </div>
 
-                <p class="help-text">Email tidak dapat diubah. Field identitas utama untuk role Anda tetap dikunci.</p>
-
                 <div class="actions">
                     <button type="submit" class="btn-primary">Simpan Perubahan</button>
                 </div>
@@ -352,7 +382,8 @@
 
         <div class="card">
             <div class="card-title">Ubah Password</div>
-            <form method="POST">
+            <div class="ajax-feedback" id="password-feedback"></div>
+            <form method="POST" id="password-form">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="change_password">
 
@@ -380,4 +411,91 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function showFeedback(elementId, type, message) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        el.className = `ajax-feedback show ${type}`;
+        el.textContent = message;
+    }
+
+    function clearFeedback(elementId) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        el.className = 'ajax-feedback';
+        el.textContent = '';
+    }
+
+    async function submitAjaxForm(formId, feedbackId, onSuccess) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            clearFeedback(feedbackId);
+
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalText = submitButton ? submitButton.textContent : '';
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Menyimpan...';
+            }
+
+            try {
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: new FormData(form),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.ok) {
+                    showFeedback(feedbackId, 'error', data.message || 'Terjadi kesalahan.');
+                    return;
+                }
+
+                showFeedback(feedbackId, 'success', data.message || 'Berhasil disimpan.');
+                if (onSuccess) onSuccess(data, form);
+            } catch (error) {
+                showFeedback(feedbackId, 'error', 'Gagal terhubung ke server.');
+            } finally {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalText;
+                }
+            }
+        });
+    }
+
+    submitAjaxForm('profile-form', 'profile-feedback', function (data) {
+        if (!data.pengguna) return;
+
+        const profileName = document.getElementById('profile-name');
+        const profileEmail = document.getElementById('profile-email');
+        const profileAvatar = document.getElementById('profile-avatar');
+        const navProfileAvatar = document.getElementById('nav-profile-avatar');
+        const pageSubtitle = document.querySelector('.page-header p');
+
+        if (profileName) profileName.textContent = data.pengguna.nama_lengkap;
+        if (profileEmail) profileEmail.textContent = data.pengguna.email;
+        if (profileAvatar) profileAvatar.textContent = data.pengguna.initial;
+        if (navProfileAvatar) navProfileAvatar.textContent = data.pengguna.initial;
+        if (pageSubtitle) pageSubtitle.textContent = 'Perbarui data akun dan keamanan profil AeroMiles Anda.';
+
+        const maskapaiEl = document.getElementById('profile-maskapai');
+        if (maskapaiEl && data.staf && data.staf.nama_maskapai) {
+            maskapaiEl.textContent = data.staf.nama_maskapai;
+        }
+    });
+
+    submitAjaxForm('password-form', 'password-feedback', function (_, form) {
+        form.reset();
+    });
+</script>
 {% endblock %}

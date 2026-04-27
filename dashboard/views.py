@@ -1,7 +1,9 @@
 from django.shortcuts import render, redirect
+from django.http import JsonResponse
 from django.contrib import messages
 from django.db import connection
 from django.contrib.auth.hashers import make_password, check_password
+from member.tier_logic import sync_member_tier
 
 
 def dashboard_view(request):
@@ -36,6 +38,7 @@ def dashboard_view(request):
 
     # MEMBER
     if role == 'member':
+        sync_member_tier(email)
         with connection.cursor() as c:
             c.execute("""
                 SELECT m.nomor_member, m.tanggal_bergabung,
@@ -143,6 +146,8 @@ def pengaturan_profil_view(request):
     role = request.session.get('role')
     if not email:
         return redirect('login')
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
     with connection.cursor() as c:
         c.execute("""
@@ -257,7 +262,10 @@ def pengaturan_profil_view(request):
                 required_fields.append(profile_data['kode_maskapai'])
 
             if not all(required_fields):
-                messages.error(request, 'Semua field profil wajib diisi.')
+                error_message = 'Semua field profil wajib diisi.'
+                if is_ajax:
+                    return JsonResponse({'ok': False, 'message': error_message}, status=400)
+                messages.error(request, error_message)
             else:
                 try:
                     with connection.cursor() as c:
@@ -290,10 +298,42 @@ def pengaturan_profil_view(request):
                                 WHERE email = %s
                             """, [profile_data['kode_maskapai'], email])
 
+                    if is_ajax:
+                        response_data = {
+                            'ok': True,
+                            'message': 'Profil berhasil diperbarui.',
+                            'pengguna': {
+                                'nama_lengkap': f"{profile_data['salutation']} {profile_data['first_mid_name']} {profile_data['last_name']}",
+                                'email': email,
+                                'country_code': profile_data['country_code'],
+                                'mobile_number': profile_data['mobile_number'],
+                                'tanggal_lahir': profile_data['tanggal_lahir'],
+                                'kewarganegaraan': profile_data['kewarganegaraan'],
+                                'initial': (profile_data['first_mid_name'][:1] or '?').upper(),
+                            },
+                        }
+                        if role == 'staf':
+                            selected_maskapai = next(
+                                (
+                                    item['nama_maskapai']
+                                    for item in context['maskapai_list']
+                                    if item['kode_maskapai'] == profile_data['kode_maskapai']
+                                ),
+                                profile_data['kode_maskapai'],
+                            )
+                            response_data['staf'] = {
+                                'kode_maskapai': profile_data['kode_maskapai'],
+                                'nama_maskapai': selected_maskapai,
+                            }
+                        return JsonResponse(response_data)
+
                     messages.success(request, 'Profil berhasil diperbarui.')
                     return redirect('pengaturan_profil')
                 except Exception as e:
-                    messages.error(request, f'Gagal memperbarui profil: {e}')
+                    error_message = f'Gagal memperbarui profil: {e}'
+                    if is_ajax:
+                        return JsonResponse({'ok': False, 'message': error_message}, status=500)
+                    messages.error(request, error_message)
 
         elif action == 'change_password':
             password_data = {
@@ -304,11 +344,20 @@ def pengaturan_profil_view(request):
             context['password_data'] = password_data
 
             if not all(password_data.values()):
-                messages.error(request, 'Semua field password wajib diisi.')
+                error_message = 'Semua field password wajib diisi.'
+                if is_ajax:
+                    return JsonResponse({'ok': False, 'message': error_message}, status=400)
+                messages.error(request, error_message)
             elif not check_password(password_data['old_password'], pengguna['password_hash']):
-                messages.error(request, 'Password lama tidak sesuai.')
+                error_message = 'Password lama tidak sesuai.'
+                if is_ajax:
+                    return JsonResponse({'ok': False, 'message': error_message}, status=400)
+                messages.error(request, error_message)
             elif password_data['new_password'] != password_data['confirm_new_password']:
-                messages.error(request, 'Konfirmasi password baru tidak cocok.')
+                error_message = 'Konfirmasi password baru tidak cocok.'
+                if is_ajax:
+                    return JsonResponse({'ok': False, 'message': error_message}, status=400)
+                messages.error(request, error_message)
             else:
                 try:
                     with connection.cursor() as c:
@@ -317,9 +366,14 @@ def pengaturan_profil_view(request):
                             SET password = %s
                             WHERE email = %s
                         """, [make_password(password_data['new_password']), email])
+                    if is_ajax:
+                        return JsonResponse({'ok': True, 'message': 'Password berhasil diubah.'})
                     messages.success(request, 'Password berhasil diubah.')
                     return redirect('pengaturan_profil')
                 except Exception as e:
-                    messages.error(request, f'Gagal mengubah password: {e}')
+                    error_message = f'Gagal mengubah password: {e}'
+                    if is_ajax:
+                        return JsonResponse({'ok': False, 'message': error_message}, status=500)
+                    messages.error(request, error_message)
 
     return render(request, 'dashboard/pengaturan_profil.html', context)

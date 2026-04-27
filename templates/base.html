@@ -183,6 +183,38 @@ body::after {
             background: var(--blue);
         }
 
+        .nav-links .profile-link {
+            padding: 0.2rem;
+            background: transparent;
+        }
+
+        .nav-links .profile-link:hover {
+            background: transparent;
+        }
+
+        .nav-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--sky), var(--blue));
+            border: 1px solid rgba(255,255,255,0.14);
+            color: var(--white);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            box-shadow: 0 8px 20px rgba(47,123,234,0.22);
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        }
+
+        .profile-link:hover .nav-avatar {
+            transform: translateY(-1px);
+            border-color: rgba(255,255,255,0.26);
+            box-shadow: 0 10px 26px rgba(47,123,234,0.32);
+        }
+
         /* MAIN CONTENT */
         main {
             position: relative;
@@ -237,7 +269,11 @@ body::after {
                 <li><a href="/redeem/">Redeem Hadiah</a></li>
                 <li><a href="/package/">Beli Package</a></li>
                 <li><a href="/tier/">Info Tier</a></li>
-                <li><a href="/pengaturan_profil/">Pengaturan Profil</a></li>
+                <li>
+                    <a href="/pengaturan_profil/" class="profile-link" title="Pengaturan Profil" aria-label="Pengaturan Profil">
+                        <span class="nav-avatar" id="nav-profile-avatar">{{ nav_user.initial }}</span>
+                    </a>
+                </li>
                 <li><a href="/logout/" class="btn-logout">Logout</a></li>
             {% elif request.session.role == 'staf' %}
                 <li><a href="/dashboard/">Dashboard</a></li>
@@ -246,7 +282,11 @@ body::after {
                 <li><a href="/kelola-hadiah/">Kelola Hadiah & Penyedia</a></li>
                 <li><a href="/kelola-mitra/">Kelola Mitra</a></li>
                 <li><a href="/laporan/">Laporan Transaksi</a></li>
-                <li><a href="/pengaturan_profil/">Pengaturan Profil</a></li>
+                <li>
+                    <a href="/pengaturan_profil/" class="profile-link" title="Pengaturan Profil" aria-label="Pengaturan Profil">
+                        <span class="nav-avatar" id="nav-profile-avatar">{{ nav_user.initial }}</span>
+                    </a>
+                </li>
                 <li><a href="/logout/" class="btn-logout">Logout</a></li>
             {% else %}
             {% endif %}
