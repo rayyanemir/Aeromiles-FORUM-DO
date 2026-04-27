@@ -16,7 +16,6 @@
         font-weight: 700;
     }
 
-    /* FILTER */
     .filter-card {
         background: rgba(255,255,255,0.04);
         border: 1px solid rgba(255,255,255,0.08);
@@ -54,6 +53,12 @@
         font-size: 0.85rem;
         outline: none;
         min-width: 160px;
+        transition: border-color 0.2s;
+    }
+
+    .filter-group select:focus,
+    .filter-group input:focus {
+        border-color: var(--sky);
     }
 
     select option { background: #111936; }
@@ -92,13 +97,38 @@
 
     .btn-proses:hover { background: rgba(47,123,234,0.2); }
 
-    /* TABLE */
     .card {
         background: rgba(255,255,255,0.04);
         border: 1px solid rgba(255,255,255,0.08);
         border-radius: 16px;
         overflow: hidden;
+        position: relative;
     }
+
+    .loading-overlay {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(10,15,44,0.6);
+        backdrop-filter: blur(2px);
+        align-items: center;
+        justify-content: center;
+        border-radius: 16px;
+        z-index: 10;
+    }
+
+    .loading-overlay.show { display: flex; }
+
+    .spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid rgba(47,123,234,0.2);
+        border-top-color: var(--sky);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     table {
         width: 100%;
@@ -163,6 +193,13 @@
     }
 
     .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(6px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    #klaim-table-wrapper { animation: fadeIn 0.25s ease both; }
 </style>
 {% endblock %}
 
@@ -175,102 +212,103 @@
 </div>
 
 <!-- Filter -->
-<form method="GET" action="{% url 'kelola_klaim' %}">
-    <div class="filter-card">
-        <div class="filter-group">
-            <label>Status</label>
-            <select name="status">
-                <option value="">Semua Status</option>
-                <option value="Menunggu" {% if status_filter == 'Menunggu' %}selected{% endif %}>Menunggu</option>
-                <option value="Disetujui" {% if status_filter == 'Disetujui' %}selected{% endif %}>Disetujui</option>
-                <option value="Ditolak" {% if status_filter == 'Ditolak' %}selected{% endif %}>Ditolak</option>
-            </select>
-        </div>
-        <div class="filter-group">
-            <label>Maskapai</label>
-            <select name="maskapai">
-                <option value="">Semua Maskapai</option>
-                {% for m in maskapai_list %}
-                    <option value="{{ m.kode }}" {% if maskapai_filter == m.kode %}selected{% endif %}>
-                        {{ m.kode }} — {{ m.nama }}
-                    </option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="filter-group">
-            <label>Tanggal Dari</label>
-            <input type="date" name="tgl_dari" value="{{ tgl_dari }}">
-        </div>
-        <div class="filter-group">
-            <label>Tanggal Sampai</label>
-            <input type="date" name="tgl_sampai" value="{{ tgl_sampai }}">
-        </div>
-        <button type="submit" class="btn btn-primary">Filter</button>
-        <a href="{% url 'kelola_klaim' %}" class="btn btn-reset">Reset</a>
+<div class="filter-card">
+    <div class="filter-group">
+        <label>Status</label>
+        <select id="filter-status">
+            <option value="">Semua Status</option>
+            <option value="Menunggu" {% if status_filter == 'Menunggu' %}selected{% endif %}>Menunggu</option>
+            <option value="Disetujui" {% if status_filter == 'Disetujui' %}selected{% endif %}>Disetujui</option>
+            <option value="Ditolak" {% if status_filter == 'Ditolak' %}selected{% endif %}>Ditolak</option>
+        </select>
     </div>
-</form>
+    <div class="filter-group">
+        <label>Maskapai</label>
+        <select id="filter-maskapai">
+            <option value="">Semua Maskapai</option>
+            {% for m in maskapai_list %}
+                <option value="{{ m.kode }}" {% if maskapai_filter == m.kode %}selected{% endif %}>
+                    {{ m.kode }} — {{ m.nama }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Tanggal Dari</label>
+        <input type="date" id="filter-tgl-dari" value="{{ tgl_dari }}">
+    </div>
+    <div class="filter-group">
+        <label>Tanggal Sampai</label>
+        <input type="date" id="filter-tgl-sampai" value="{{ tgl_sampai }}">
+    </div>
+    <button class="btn btn-primary" onclick="applyFilter()">Filter</button>
+    <button class="btn btn-reset" onclick="resetFilter()">Reset</button>
+</div>
 
 <!-- Tabel -->
-<div class="card">
-    {% if klaim_list %}
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Member</th>
-                <th>Maskapai</th>
-                <th>Rute</th>
-                <th>Tgl Penerbangan</th>
-                <th>Flight</th>
-                <th>Kelas</th>
-                <th>Tgl Pengajuan</th>
-                <th>Status</th>
-                <th>Aksi</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for k in klaim_list %}
-            <tr>
-                <td style="color: var(--muted)">#{{ k.id }}</td>
-                <td>
-                    <div>{{ k.nama_member }}</div>
-                    <div style="font-size: 0.78rem; color: var(--muted)">{{ k.email_member }}</div>
-                </td>
-                <td>{{ k.maskapai }}</td>
-                <td>
-                    {{ k.bandara_asal_code }}
-                    <span style="color: var(--muted)">→</span>
-                    {{ k.bandara_tujuan_code }}
-                </td>
-                <td style="color: var(--muted)">{{ k.tanggal_penerbangan }}</td>
-                <td>{{ k.flight_number }}</td>
-                <td style="color: var(--muted)">{{ k.kelas_kabin }}</td>
-                <td style="color: var(--muted); font-size: 0.78rem">{{ k.timestamp|date:"d M Y H:i" }}</td>
-                <td>
-                    {% if k.status == 'Menunggu' %}
-                        <span class="badge badge-menunggu">Menunggu</span>
-                    {% elif k.status == 'Disetujui' %}
-                        <span class="badge badge-disetujui">Disetujui</span>
-                    {% else %}
-                        <span class="badge badge-ditolak">Ditolak</span>
-                    {% endif %}
-                </td>
-                <td>
-                    {% if k.status == 'Menunggu' %}
-                        <a href="{% url 'klaim_proses' k.id %}" class="btn btn-proses">Proses</a>
-                    {% else %}
-                        <span style="color: var(--muted); font-size: 0.8rem">—</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <div class="empty-state">
-        <div class="empty-icon">📋</div>
-        <p>Tidak ada klaim yang ditemukan.</p>
+<div class="card" id="klaim-card">
+    <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
     </div>
-    {% endif %}
+    <div id="klaim-table-wrapper">
+        {% include 'staf/klaim_table_partial_staf.html' %}
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function buildQueryString() {
+        const status    = document.getElementById('filter-status').value;
+        const maskapai  = document.getElementById('filter-maskapai').value;
+        const tglDari   = document.getElementById('filter-tgl-dari').value;
+        const tglSampai = document.getElementById('filter-tgl-sampai').value;
+
+        const params = new URLSearchParams();
+        if (status)    params.set('status', status);
+        if (maskapai)  params.set('maskapai', maskapai);
+        if (tglDari)   params.set('tgl_dari', tglDari);
+        if (tglSampai) params.set('tgl_sampai', tglSampai);
+        params.set('ajax', '1');
+
+        return params.toString();
+    }
+
+    function applyFilter() {
+        const qs = buildQueryString();
+        document.getElementById('loading').classList.add('show');
+
+        fetch(`{% url 'kelola_klaim' %}?${qs}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.text())
+        .then(html => {
+            const wrapper = document.getElementById('klaim-table-wrapper');
+            wrapper.style.animation = 'none';
+            wrapper.innerHTML = html;
+            wrapper.offsetHeight;
+            wrapper.style.animation = '';
+            document.getElementById('loading').classList.remove('show');
+
+            // Update URL tanpa reload
+            const cleanQs = qs.replace('&ajax=1', '').replace('ajax=1&', '').replace('ajax=1', '');
+            history.pushState({}, '', cleanQs ? `?${cleanQs}` : window.location.pathname);
+        })
+        .catch(() => {
+            document.getElementById('loading').classList.remove('show');
+        });
+    }
+
+    function resetFilter() {
+        document.getElementById('filter-status').value = '';
+        document.getElementById('filter-maskapai').value = '';
+        document.getElementById('filter-tgl-dari').value = '';
+        document.getElementById('filter-tgl-sampai').value = '';
+        applyFilter();
+    }
+
+    // Auto filter saat select berubah
+    document.getElementById('filter-status').addEventListener('change', applyFilter);
+    document.getElementById('filter-maskapai').addEventListener('change', applyFilter);
+</script>
 {% endblock %}
