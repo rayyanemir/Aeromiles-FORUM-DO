@@ -237,7 +237,7 @@ body::after {
                 <li><a href="/redeem/">Redeem Hadiah</a></li>
                 <li><a href="/package/">Beli Package</a></li>
                 <li><a href="/tier/">Info Tier</a></li>
-                <li><a href="/profil/">Pengaturan Profil</a></li>
+                <li><a href="/pengaturan_profil/">Pengaturan Profil</a></li>
                 <li><a href="/logout/" class="btn-logout">Logout</a></li>
             {% elif request.session.role == 'staf' %}
                 <li><a href="/dashboard/">Dashboard</a></li>
@@ -246,7 +246,7 @@ body::after {
                 <li><a href="/kelola-hadiah/">Kelola Hadiah & Penyedia</a></li>
                 <li><a href="/kelola-mitra/">Kelola Mitra</a></li>
                 <li><a href="/laporan/">Laporan Transaksi</a></li>
-                <li><a href="/profil/">Pengaturan Profil</a></li>
+                <li><a href="/pengaturan_profil/">Pengaturan Profil</a></li>
                 <li><a href="/logout/" class="btn-logout">Logout</a></li>
             {% else %}
             {% endif %}

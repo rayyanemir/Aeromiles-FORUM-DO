@@ -1,5 +1,7 @@
 from django.shortcuts import render, redirect
+from django.contrib import messages
 from django.db import connection
+from django.contrib.auth.hashers import make_password, check_password
 
 
 def dashboard_view(request):
@@ -134,3 +136,190 @@ def dashboard_view(request):
             }
 
     return render(request, 'dashboard/dashboard.html', context)
+
+
+def pengaturan_profil_view(request):
+    email = request.session.get('user_email')
+    role = request.session.get('role')
+    if not email:
+        return redirect('login')
+
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT email, password, salutation, first_mid_name, last_name,
+                   country_code, mobile_number, tanggal_lahir, kewarganegaraan
+            FROM pengguna
+            WHERE email = %s
+        """, [email])
+        row = c.fetchone()
+
+    if not row:
+        request.session.flush()
+        messages.error(request, 'Data pengguna tidak ditemukan. Silakan login kembali.')
+        return redirect('login')
+
+    pengguna = {
+        'email': row[0],
+        'password_hash': row[1],
+        'salutation': row[2],
+        'first_mid_name': row[3],
+        'last_name': row[4],
+        'country_code': row[5],
+        'mobile_number': row[6],
+        'tanggal_lahir': row[7].strftime('%Y-%m-%d') if row[7] else '',
+        'kewarganegaraan': row[8],
+        'nama_lengkap': f"{row[2]} {row[3]} {row[4]}",
+    }
+
+    context = {
+        'role': role,
+        'pengguna': pengguna,
+        'profile_data': {
+            'salutation': pengguna['salutation'],
+            'first_mid_name': pengguna['first_mid_name'],
+            'last_name': pengguna['last_name'],
+            'country_code': pengguna['country_code'],
+            'mobile_number': pengguna['mobile_number'],
+            'tanggal_lahir': pengguna['tanggal_lahir'],
+            'kewarganegaraan': pengguna['kewarganegaraan'],
+        },
+        'password_data': {},
+    }
+
+    if role == 'member':
+        with connection.cursor() as c:
+            c.execute("""
+                SELECT nomor_member, tanggal_bergabung
+                FROM member
+                WHERE email = %s
+            """, [email])
+            member = c.fetchone()
+
+        context['member'] = {
+            'nomor_member': member[0],
+            'tanggal_bergabung': member[1],
+        } if member else None
+
+    elif role == 'staf':
+        with connection.cursor() as c:
+            c.execute("""
+                SELECT s.id_staf, s.kode_maskapai, mk.nama_maskapai
+                FROM staf s
+                JOIN maskapai mk ON s.kode_maskapai = mk.kode_maskapai
+                WHERE s.email = %s
+            """, [email])
+            staf = c.fetchone()
+
+        with connection.cursor() as c:
+            c.execute("SELECT kode_maskapai, nama_maskapai FROM maskapai ORDER BY nama_maskapai")
+            maskapai_rows = c.fetchall()
+
+        context['staf'] = {
+            'id_staf': staf[0],
+            'kode_maskapai': staf[1],
+            'nama_maskapai': staf[2],
+        } if staf else None
+        context['maskapai_list'] = [
+            {'kode_maskapai': item[0], 'nama_maskapai': item[1]}
+            for item in maskapai_rows
+        ]
+        if staf:
+            context['profile_data']['kode_maskapai'] = staf[1]
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'update_profile':
+            profile_data = {
+                'salutation': request.POST.get('salutation', '').strip(),
+                'first_mid_name': request.POST.get('first_mid_name', '').strip(),
+                'last_name': request.POST.get('last_name', '').strip(),
+                'country_code': request.POST.get('country_code', '').strip(),
+                'mobile_number': request.POST.get('mobile_number', '').strip(),
+                'tanggal_lahir': request.POST.get('tanggal_lahir', '').strip(),
+                'kewarganegaraan': request.POST.get('kewarganegaraan', '').strip(),
+            }
+            if role == 'staf':
+                profile_data['kode_maskapai'] = request.POST.get('kode_maskapai', '').strip()
+
+            context['profile_data'] = profile_data
+
+            required_fields = [
+                profile_data['salutation'],
+                profile_data['first_mid_name'],
+                profile_data['last_name'],
+                profile_data['country_code'],
+                profile_data['mobile_number'],
+                profile_data['tanggal_lahir'],
+                profile_data['kewarganegaraan'],
+            ]
+            if role == 'staf':
+                required_fields.append(profile_data['kode_maskapai'])
+
+            if not all(required_fields):
+                messages.error(request, 'Semua field profil wajib diisi.')
+            else:
+                try:
+                    with connection.cursor() as c:
+                        c.execute("""
+                            UPDATE pengguna
+                            SET salutation = %s,
+                                first_mid_name = %s,
+                                last_name = %s,
+                                country_code = %s,
+                                mobile_number = %s,
+                                tanggal_lahir = %s,
+                                kewarganegaraan = %s
+                            WHERE email = %s
+                        """, [
+                            profile_data['salutation'],
+                            profile_data['first_mid_name'],
+                            profile_data['last_name'],
+                            profile_data['country_code'],
+                            profile_data['mobile_number'],
+                            profile_data['tanggal_lahir'],
+                            profile_data['kewarganegaraan'],
+                            email,
+                        ])
+
+                    if role == 'staf':
+                        with connection.cursor() as c:
+                            c.execute("""
+                                UPDATE staf
+                                SET kode_maskapai = %s
+                                WHERE email = %s
+                            """, [profile_data['kode_maskapai'], email])
+
+                    messages.success(request, 'Profil berhasil diperbarui.')
+                    return redirect('pengaturan_profil')
+                except Exception as e:
+                    messages.error(request, f'Gagal memperbarui profil: {e}')
+
+        elif action == 'change_password':
+            password_data = {
+                'old_password': request.POST.get('old_password', ''),
+                'new_password': request.POST.get('new_password', ''),
+                'confirm_new_password': request.POST.get('confirm_new_password', ''),
+            }
+            context['password_data'] = password_data
+
+            if not all(password_data.values()):
+                messages.error(request, 'Semua field password wajib diisi.')
+            elif not check_password(password_data['old_password'], pengguna['password_hash']):
+                messages.error(request, 'Password lama tidak sesuai.')
+            elif password_data['new_password'] != password_data['confirm_new_password']:
+                messages.error(request, 'Konfirmasi password baru tidak cocok.')
+            else:
+                try:
+                    with connection.cursor() as c:
+                        c.execute("""
+                            UPDATE pengguna
+                            SET password = %s
+                            WHERE email = %s
+                        """, [make_password(password_data['new_password']), email])
+                    messages.success(request, 'Password berhasil diubah.')
+                    return redirect('pengaturan_profil')
+                except Exception as e:
+                    messages.error(request, f'Gagal mengubah password: {e}')
+
+    return render(request, 'dashboard/pengaturan_profil.html', context)

@@ -1,0 +1,383 @@
+{% extends 'base.html' %}
+
+{% block title %}Pengaturan Profil - AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        margin-bottom: 2rem;
+    }
+
+    .page-header h1 {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--white);
+    }
+
+    .page-header p {
+        color: var(--muted);
+        font-size: 0.95rem;
+        margin-top: 0.25rem;
+    }
+
+    .profile-layout {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    @media (max-width: 960px) {
+        .profile-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        padding: 1.5rem;
+    }
+
+    .card-title {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin-bottom: 1.25rem;
+    }
+
+    .profile-avatar {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--sky), var(--blue));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Syne', sans-serif;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--white);
+        margin-bottom: 1rem;
+    }
+
+    .profile-name {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--white);
+        margin-bottom: 0.25rem;
+    }
+
+    .profile-email {
+        color: var(--muted);
+        font-size: 0.88rem;
+        margin-bottom: 1rem;
+        word-break: break-word;
+    }
+
+    .info-list {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        font-size: 0.88rem;
+    }
+
+    .info-row .label {
+        color: var(--muted);
+    }
+
+    .info-row .value {
+        color: var(--white);
+        text-align: right;
+        font-weight: 500;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .full-width {
+        grid-column: 1 / -1;
+    }
+
+    .phone-row {
+        display: grid;
+        grid-template-columns: 130px 1fr;
+        gap: 0.75rem;
+    }
+
+    label {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--muted);
+        margin-bottom: 0.45rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    input, select {
+        width: 100%;
+        padding: 0.8rem 0.95rem;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px;
+        color: var(--white);
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.92rem;
+        outline: none;
+        transition: border-color 0.2s, background 0.2s;
+    }
+
+    input:focus, select:focus {
+        border-color: var(--sky);
+        background: rgba(47,123,234,0.08);
+    }
+
+    input[readonly], input:disabled, select:disabled {
+        opacity: 0.75;
+        cursor: not-allowed;
+        background: rgba(255,255,255,0.03);
+    }
+
+    select option {
+        background: var(--navy-mid);
+        color: var(--white);
+    }
+
+    .help-text {
+        color: var(--muted);
+        font-size: 0.82rem;
+        margin-top: -0.15rem;
+        margin-bottom: 1rem;
+    }
+
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 0.5rem;
+    }
+
+    .btn-primary {
+        border: none;
+        border-radius: 10px;
+        padding: 0.9rem 1.2rem;
+        background: var(--sky);
+        color: var(--white);
+        font-family: 'Syne', sans-serif;
+        font-size: 0.96rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-primary:hover {
+        background: #1a6dd4;
+        transform: translateY(-1px);
+        box-shadow: 0 8px 24px rgba(47,123,234,0.3);
+    }
+
+    @media (max-width: 700px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .phone-row {
+            grid-template-columns: 1fr;
+        }
+
+        .actions {
+            justify-content: stretch;
+        }
+
+        .btn-primary {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Pengaturan Profil</h1>
+    <p>Perbarui data akun dan keamanan profil AeroMiles Anda.</p>
+</div>
+
+<div class="profile-layout">
+    <div class="stack">
+        <div class="card">
+            <div class="card-title">Profil Saat Ini</div>
+            <div class="profile-avatar">{{ pengguna.first_mid_name|first|upper }}</div>
+            <div class="profile-name">{{ pengguna.nama_lengkap }}</div>
+            <div class="profile-email">{{ pengguna.email }}</div>
+
+            <div class="info-list">
+                {% if role == 'member' and member %}
+                    <div class="info-row">
+                        <span class="label">Nomor Member</span>
+                        <span class="value">{{ member.nomor_member }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Tanggal Bergabung</span>
+                        <span class="value">{{ member.tanggal_bergabung }}</span>
+                    </div>
+                {% elif role == 'staf' and staf %}
+                    <div class="info-row">
+                        <span class="label">ID Staf</span>
+                        <span class="value">{{ staf.id_staf }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Maskapai</span>
+                        <span class="value">{{ staf.nama_maskapai }}</span>
+                    </div>
+                {% endif %}
+                <div class="info-row">
+                    <span class="label">Role</span>
+                    <span class="value">{{ role|title }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="stack">
+        <div class="card">
+            <div class="card-title">Data Profil</div>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_profile">
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="salutation">Salutation</label>
+                        <select id="salutation" name="salutation" required>
+                            <option value="">-- Pilih --</option>
+                            <option value="Mr." {% if profile_data.salutation == 'Mr.' %}selected{% endif %}>Mr.</option>
+                            <option value="Mrs." {% if profile_data.salutation == 'Mrs.' %}selected{% endif %}>Mrs.</option>
+                            <option value="Ms." {% if profile_data.salutation == 'Ms.' %}selected{% endif %}>Ms.</option>
+                            <option value="Dr." {% if profile_data.salutation == 'Dr.' %}selected{% endif %}>Dr.</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input id="email" type="email" value="{{ pengguna.email }}" readonly>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="first_mid_name">Nama Depan & Tengah</label>
+                        <input id="first_mid_name" type="text" name="first_mid_name" value="{{ profile_data.first_mid_name }}" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="last_name">Nama Belakang</label>
+                        <input id="last_name" type="text" name="last_name" value="{{ profile_data.last_name }}" required>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Nomor HP</label>
+                        <div class="phone-row">
+                            <input type="text" name="country_code" value="{{ profile_data.country_code }}" placeholder="+62" required>
+                            <input type="text" name="mobile_number" value="{{ profile_data.mobile_number }}" placeholder="81234567890" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tanggal_lahir">Tanggal Lahir</label>
+                        <input id="tanggal_lahir" type="date" name="tanggal_lahir" value="{{ profile_data.tanggal_lahir }}" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="kewarganegaraan">Kewarganegaraan</label>
+                        <input id="kewarganegaraan" type="text" name="kewarganegaraan" value="{{ profile_data.kewarganegaraan }}" required>
+                    </div>
+
+                    {% if role == 'member' and member %}
+                        <div class="form-group">
+                            <label for="nomor_member">Nomor Member</label>
+                            <input id="nomor_member" type="text" value="{{ member.nomor_member }}" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="tanggal_bergabung">Tanggal Bergabung</label>
+                            <input id="tanggal_bergabung" type="text" value="{{ member.tanggal_bergabung }}" readonly>
+                        </div>
+                    {% elif role == 'staf' and staf %}
+                        <div class="form-group">
+                            <label for="id_staf">ID Staf</label>
+                            <input id="id_staf" type="text" value="{{ staf.id_staf }}" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="kode_maskapai">Kode Maskapai</label>
+                            <select id="kode_maskapai" name="kode_maskapai" required>
+                                <option value="">-- Pilih Maskapai --</option>
+                                {% for maskapai in maskapai_list %}
+                                    <option value="{{ maskapai.kode_maskapai }}" {% if profile_data.kode_maskapai == maskapai.kode_maskapai %}selected{% endif %}>
+                                        {{ maskapai.kode_maskapai }} - {{ maskapai.nama_maskapai }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <p class="help-text">Email tidak dapat diubah. Field identitas utama untuk role Anda tetap dikunci.</p>
+
+                <div class="actions">
+                    <button type="submit" class="btn-primary">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Ubah Password</div>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="change_password">
+
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="old_password">Password Lama</label>
+                        <input id="old_password" type="password" name="old_password" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new_password">Password Baru</label>
+                        <input id="new_password" type="password" name="new_password" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="confirm_new_password">Konfirmasi Password Baru</label>
+                        <input id="confirm_new_password" type="password" name="confirm_new_password" required>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button type="submit" class="btn-primary">Ubah Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
