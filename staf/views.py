@@ -4,7 +4,6 @@ from django.db import connection
 
 
 def login_required_staf(view_func):
-    """Decorator cek login dan role staf."""
     def wrapper(request, *args, **kwargs):
         if not request.session.get('user_email'):
             return redirect('login')
@@ -14,18 +13,7 @@ def login_required_staf(view_func):
     return wrapper
 
 
-# FITUR 9
-
-@login_required_staf
-def klaim_list_staf(request):
-    email_staf = request.session['user_email']
-
-    # Filter params
-    status_filter   = request.GET.get('status', '')
-    maskapai_filter = request.GET.get('maskapai', '')
-    tgl_dari        = request.GET.get('tgl_dari', '')
-    tgl_sampai      = request.GET.get('tgl_sampai', '')
-
+def get_klaim_list_staf(status_filter='', maskapai_filter='', tgl_dari='', tgl_sampai=''):
     query = """
         SELECT cm.id,
                p.first_mid_name || ' ' || p.last_name AS nama_member,
@@ -72,46 +60,58 @@ def klaim_list_staf(request):
         c.execute(query, params)
         rows = c.fetchall()
 
-    klaim_list = []
-    for r in rows:
-        klaim_list.append({
-            'id':                  r[0],
-            'nama_member':         r[1],
-            'email_member':        r[2],
-            'maskapai':            r[3],
-            'bandara_asal_code':   r[4],
-            'bandara_asal_nama':   r[5],
-            'bandara_tujuan_code': r[6],
-            'bandara_tujuan_nama': r[7],
-            'tanggal_penerbangan': r[8],
-            'flight_number':       r[9],
-            'kelas_kabin':         r[10],
-            'timestamp':           r[11],
-            'status':              r[12],
-            'nomor_tiket':         r[13],
-            'pnr':                 r[14],
-        })
+    return [{
+        'id':                  r[0],
+        'nama_member':         r[1],
+        'email_member':        r[2],
+        'maskapai':            r[3],
+        'bandara_asal_code':   r[4],
+        'bandara_asal_nama':   r[5],
+        'bandara_tujuan_code': r[6],
+        'bandara_tujuan_nama': r[7],
+        'tanggal_penerbangan': r[8],
+        'flight_number':       r[9],
+        'kelas_kabin':         r[10],
+        'timestamp':           r[11],
+        'status':              r[12],
+        'nomor_tiket':         r[13],
+        'pnr':                 r[14],
+    } for r in rows]
 
-    # Ambil daftar maskapai untuk filter dropdown
+
+@login_required_staf
+def klaim_list_staf(request):
+    status_filter   = request.GET.get('status', '')
+    maskapai_filter = request.GET.get('maskapai', '')
+    tgl_dari        = request.GET.get('tgl_dari', '')
+    tgl_sampai      = request.GET.get('tgl_sampai', '')
+    is_ajax         = request.GET.get('ajax') == '1' or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    klaim_data = get_klaim_list_staf(status_filter, maskapai_filter, tgl_dari, tgl_sampai)
+
     with connection.cursor() as c:
         c.execute("SELECT kode_maskapai, nama_maskapai FROM maskapai ORDER BY nama_maskapai")
         maskapai_list = [{'kode': r[0], 'nama': r[1]} for r in c.fetchall()]
 
-    return render(request, 'staf/klaim_list_staf.html', {
-        'klaim_list':      klaim_list,
+    context = {
+        'klaim_list':      klaim_data,
         'maskapai_list':   maskapai_list,
         'status_filter':   status_filter,
         'maskapai_filter': maskapai_filter,
         'tgl_dari':        tgl_dari,
         'tgl_sampai':      tgl_sampai,
-    })
+    }
+
+    if is_ajax:
+        return render(request, 'staf/klaim_table_partial_staf.html', context)
+
+    return render(request, 'staf/klaim_list_staf.html', context)
 
 
 @login_required_staf
 def klaim_proses(request, id):
     email_staf = request.session['user_email']
 
-    # Ambil data klaim
     with connection.cursor() as c:
         c.execute("""
             SELECT cm.id, cm.email_member, cm.status_penerimaan,
@@ -151,7 +151,7 @@ def klaim_proses(request, id):
         return redirect('kelola_klaim')
 
     if request.method == 'POST':
-        aksi = request.POST.get('aksi')  # 'Disetujui' atau 'Ditolak'
+        aksi = request.POST.get('aksi')
 
         if aksi not in ['Disetujui', 'Ditolak']:
             messages.error(request, 'Aksi tidak valid.')
@@ -159,21 +159,14 @@ def klaim_proses(request, id):
 
         try:
             with connection.cursor() as c:
-                # Update status klaim + catat email staf
                 c.execute("""
                     UPDATE claim_missing_miles
                     SET status_penerimaan = %s, email_staf = %s
                     WHERE id = %s AND status_penerimaan = 'Menunggu'
                 """, [aksi, email_staf, id])
 
-            # Kalau disetujui, tambah miles ke member
             if aksi == 'Disetujui':
-                # Hitung miles berdasarkan kelas kabin (contoh sederhana)
-                miles_map = {
-                    'Economy': 500,
-                    'Business': 1000,
-                    'First': 2000,
-                }
+                miles_map = {'Economy': 500, 'Business': 1000, 'First': 2000}
                 miles = miles_map.get(klaim['kelas_kabin'], 500)
 
                 with connection.cursor() as c:
