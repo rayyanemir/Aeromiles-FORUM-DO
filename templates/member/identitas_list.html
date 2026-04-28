@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% block title %}Identitas Saya – AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-header { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:2rem; flex-wrap:wrap; gap:1rem; }
+  .page-title { font-family:'Syne',sans-serif; font-size:1.8rem; font-weight:800; color:var(--white); }
+  .page-title span { color:var(--accent); }
+  .subtitle { color:var(--muted); font-size:0.875rem; margin-top:0.25rem; }
+
+  .btn { display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1.1rem; border-radius:8px; font-size:0.875rem; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; border:none; text-decoration:none; transition:all 0.2s; white-space:nowrap; }
+  .btn-primary { background:var(--sky); color:#fff; }
+  .btn-primary:hover { background:var(--blue); }
+  .btn-warning { background:rgba(245,166,35,0.18); color:var(--accent); border:1px solid rgba(245,166,35,0.3); }
+  .btn-warning:hover { background:rgba(245,166,35,0.28); }
+  .btn-danger  { background:rgba(255,107,107,0.14); color:#ff9999; border:1px solid rgba(255,107,107,0.3); }
+  .btn-danger:hover  { background:rgba(255,107,107,0.24); }
+  .btn-sm { padding:0.35rem 0.75rem; font-size:0.8rem; }
+
+  .cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1.25rem; }
+
+  /* ID Card style */
+  .id-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .id-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.15); }
+  .id-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .id-card.status-aktif::before      { background: linear-gradient(90deg, #50c878, #2f7bea); }
+  .id-card.status-segera_habis::before { background: linear-gradient(90deg, var(--accent), #ff6b35); }
+  .id-card.status-kadaluarsa::before  { background: linear-gradient(90deg, #ff6b6b, #8b0000); }
+
+  .card-header { display:flex; align-items:center; justify-content:space-between; }
+  .doc-type {
+    font-family:'Syne',sans-serif;
+    font-size:1rem;
+    font-weight:700;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .doc-icon { font-size: 1.4rem; }
+
+  .status-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+  }
+  .badge-aktif      { background:rgba(80,200,120,0.15); color:#7debb0; border:1px solid rgba(80,200,120,0.3); }
+  .badge-segera_habis { background:rgba(245,166,35,0.18); color:var(--accent-light); border:1px solid rgba(245,166,35,0.3); }
+  .badge-kadaluarsa { background:rgba(255,107,107,0.14); color:#ff9999; border:1px solid rgba(255,107,107,0.3); }
+
+  .doc-number { font-family:'Syne',sans-serif; font-size:1.05rem; font-weight:700; letter-spacing:0.05em; }
+  .doc-meta { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
+  .meta-item { font-size:0.78rem; }
+  .meta-label { color:var(--muted); margin-bottom:0.1rem; }
+  .meta-value { color:var(--white); font-weight:500; }
+
+  .card-actions { display:flex; gap:0.5rem; margin-top:0.25rem; }
+
+  /* Empty */
+  .empty-state { text-align:center; padding:4rem 2rem; color:var(--muted); }
+  .empty-state .icon { font-size:3rem; margin-bottom:1rem; }
+  .empty-state p { font-size:0.9rem; }
+
+  /* Info tip */
+  .tip-box {
+    background: rgba(47,123,234,0.1);
+    border: 1px solid rgba(47,123,234,0.25);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    font-size: 0.82rem;
+    color: #82b4f5;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Identitas <span>Saya</span></h1>
+    <p class="subtitle">Kelola dokumen identitas yang terdaftar di akun Anda</p>
+  </div>
+  <a href="{% url 'identitas_tambah' %}" class="btn btn-primary">＋ Tambah Dokumen</a>
+</div>
+
+<div class="tip-box">
+  ℹ️ Dokumen yang mendekati masa berlaku (≤ 90 hari) akan ditandai dengan peringatan. Segera perbarui sebelum kadaluarsa.
+</div>
+
+{% if identitas_list %}
+<div class="cards-grid">
+  {% for id in identitas_list %}
+  <div class="id-card status-{{ id.status }}">
+    <div class="card-header">
+      <div class="doc-type">
+        <span class="doc-icon">
+          {% if id.jenis == 'Paspor' %}🛂
+          {% elif id.jenis == 'KTP' %}🪪
+          {% else %}🚗{% endif %}
+        </span>
+        {{ id.jenis }}
+      </div>
+      <span class="status-badge badge-{{ id.status }}">
+        {% if id.status == 'aktif' %}Aktif
+        {% elif id.status == 'segera_habis' %}Segera Habis
+        {% else %}Kadaluarsa{% endif %}
+      </span>
+    </div>
+
+    <div class="doc-number">{{ id.nomor }}</div>
+
+    <div class="doc-meta">
+      <div class="meta-item">
+        <div class="meta-label">Negara Penerbit</div>
+        <div class="meta-value">{{ id.negara_penerbit }}</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">Tanggal Terbit</div>
+        <div class="meta-value">{{ id.tanggal_terbit }}</div>
+      </div>
+      <div class="meta-item" style="grid-column:1/-1">
+        <div class="meta-label">Berlaku Hingga</div>
+        <div class="meta-value" style="{% if id.status == 'kadaluarsa' %}color:#ff9999{% elif id.status == 'segera_habis' %}color:var(--accent-light){% endif %}">
+          {{ id.tanggal_habis }}
+          {% if id.status == 'kadaluarsa' %} ⚠️{% elif id.status == 'segera_habis' %} ⏰{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card-actions">
+      <a href="{% url 'identitas_edit' id.nomor %}" class="btn btn-warning btn-sm">✏️ Edit</a>
+      <a href="{% url 'identitas_hapus' id.nomor %}" class="btn btn-danger btn-sm">🗑 Hapus</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="icon">🪪</div>
+  <p>Belum ada dokumen identitas yang terdaftar.<br>Tambahkan dokumen pertama Anda!</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+{% block title %}{% if mode == 'tambah' %}Tambah{% else %}Edit{% endif %} Identitas – AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-header { margin-bottom: 2rem; }
+  .page-title { font-family:'Syne',sans-serif; font-size:1.8rem; font-weight:800; color:var(--white); }
+  .page-title span { color:var(--accent); }
+  .subtitle { color:var(--muted); font-size:0.875rem; margin-top:0.25rem; }
+
+  .form-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    max-width: 560px;
+  }
+  .form-section { margin-bottom: 1.5rem; }
+  .section-title {
+    font-family:'Syne',sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin-bottom: 1rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  .form-group { display:flex; flex-direction:column; gap:0.4rem; }
+  .form-group.full { grid-column:1/-1; }
+  label { font-size:0.82rem; color:var(--muted); font-weight:500; }
+  input, select {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--white);
+    padding: 0.6rem 0.9rem;
+    font-size: 0.875rem;
+    font-family:'DM Sans',sans-serif;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { outline:none; border-color:var(--sky); }
+  input[readonly] { opacity:0.5; cursor:not-allowed; }
+  select option { background:#111936; }
+
+  .readonly-info {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+
+  .error-box {
+    background: rgba(255,107,107,0.12);
+    border: 1px solid rgba(255,107,107,0.3);
+    color: #ff9999;
+    border-radius: 10px;
+    padding: 0.85rem 1.1rem;
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .form-actions { display:flex; gap:0.75rem; margin-top:1.5rem; flex-wrap:wrap; }
+  .btn { display:inline-flex; align-items:center; gap:0.4rem; padding:0.6rem 1.4rem; border-radius:8px; font-size:0.9rem; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; border:none; text-decoration:none; transition:all 0.2s; }
+  .btn-primary   { background:var(--sky); color:#fff; }
+  .btn-primary:hover   { background:var(--blue); }
+  .btn-secondary { background:transparent; color:var(--muted); border:1px solid var(--border); }
+  .btn-secondary:hover { color:var(--white); }
+
+  .jenis-options { display:flex; gap:0.75rem; flex-wrap:wrap; }
+  .jenis-option { display:none; }
+  .jenis-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1.1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04);
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .jenis-option:checked + .jenis-label {
+    background: rgba(47,123,234,0.2);
+    border-color: var(--sky);
+    color: #82b4f5;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">
+    {% if mode == 'tambah' %}Tambah <span>Dokumen Identitas</span>{% else %}Edit <span>Dokumen Identitas</span>{% endif %}
+  </h1>
+  <p class="subtitle">
+    {% if mode == 'tambah' %}Daftarkan dokumen perjalanan atau identitas Anda{% else %}Perbarui informasi dokumen identitas{% endif %}
+  </p>
+</div>
+
+{% if error %}
+<div class="error-box">⚠ {{ error }}</div>
+{% endif %}
+
+<div class="form-card">
+  <form method="post">
+    {% csrf_token %}
+
+    <div class="form-section">
+      <div class="section-title">🪪 Informasi Dokumen</div>
+      <div class="form-grid">
+
+        <div class="form-group full">
+          <label>Jenis Dokumen *</label>
+          <div class="jenis-options">
+            <input type="radio" id="jenis_Paspor" name="jenis" value="Paspor" class="jenis-option"
+              {% if mode == 'edit' and identitas.jenis == 'Paspor' %}checked{% elif request.POST.jenis == 'Paspor' %}checked{% endif %}>
+            <label for="jenis_Paspor" class="jenis-label">🛂 Paspor</label>
+
+            <input type="radio" id="jenis_KTP" name="jenis" value="KTP" class="jenis-option"
+              {% if mode == 'edit' and identitas.jenis == 'KTP' %}checked{% elif request.POST.jenis == 'KTP' %}checked{% endif %}>
+            <label for="jenis_KTP" class="jenis-label">🪪 KTP</label>
+
+            <input type="radio" id="jenis_SIM" name="jenis" value="SIM" class="jenis-option"
+              {% if mode == 'edit' and identitas.jenis == 'SIM' %}checked{% elif request.POST.jenis == 'SIM' %}checked{% endif %}>
+            <label for="jenis_SIM" class="jenis-label">🚗 SIM</label>
+          </div>
+        </div>
+
+        {% if mode == 'edit' %}
+        <div class="form-group full">
+          <label>Nomor Dokumen (tidak dapat diubah)</label>
+          <div class="readonly-info">{{ identitas.nomor }}</div>
+        </div>
+        {% else %}
+        <div class="form-group full">
+          <label for="nomor">Nomor Dokumen *</label>
+          <input type="text" id="nomor" name="nomor" value="{{ request.POST.nomor }}"
+                 placeholder="Contoh: A12345678 / 3271xxxxxxxxxx" required>
+        </div>
+        {% endif %}
+
+        <div class="form-group full">
+          <label for="negara_penerbit">Negara Penerbit *</label>
+          <input type="text" id="negara_penerbit" name="negara_penerbit"
+                 value="{% if mode == 'edit' %}{{ identitas.negara_penerbit }}{% else %}{{ request.POST.negara_penerbit }}{% endif %}"
+                 placeholder="Indonesia" required>
+        </div>
+
+        <div class="form-group">
+          <label for="tanggal_terbit">Tanggal Terbit *</label>
+          <input type="date" id="tanggal_terbit" name="tanggal_terbit"
+                 value="{% if mode == 'edit' %}{{ identitas.tanggal_terbit }}{% else %}{{ request.POST.tanggal_terbit }}{% endif %}" required>
+        </div>
+
+        <div class="form-group">
+          <label for="tanggal_habis">Berlaku Hingga *</label>
+          <input type="date" id="tanggal_habis" name="tanggal_habis"
+                 value="{% if mode == 'edit' %}{{ identitas.tanggal_habis }}{% else %}{{ request.POST.tanggal_habis }}{% endif %}" required>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">
+        {% if mode == 'tambah' %}✚ Simpan Dokumen{% else %}💾 Perbarui Dokumen{% endif %}
+      </button>
+      <a href="{% url 'identitas_list' %}" class="btn btn-secondary">Batal</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Validasi tanggal: habis harus setelah terbit
+  document.querySelector('form').addEventListener('submit', function(e) {
+    const terbit = document.getElementById('tanggal_terbit').value;
+    const habis  = document.getElementById('tanggal_habis').value;
+    if (terbit && habis && terbit >= habis) {
+      e.preventDefault();
+      alert('Tanggal berlaku hingga harus setelah tanggal terbit.');
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,216 @@
+{% extends 'base.html' %}
+{% block title %}{% if mode == 'tambah' %}Tambah{% else %}Edit{% endif %} Member – AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-header { margin-bottom: 2rem; }
+  .page-title { font-family:'Syne',sans-serif; font-size:1.8rem; font-weight:800; color:var(--white); }
+  .page-title span { color:var(--accent); }
+  .subtitle { color:var(--muted); font-size:0.875rem; margin-top:0.25rem; }
+
+  .form-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    max-width: 680px;
+  }
+  .form-section { margin-bottom: 1.75rem; }
+  .section-title {
+    font-family:'Syne',sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin-bottom: 1rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  .form-group { display:flex; flex-direction:column; gap:0.4rem; }
+  .form-group.full { grid-column: 1/-1; }
+  label { font-size:0.82rem; color:var(--muted); font-weight:500; }
+  input, select {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--white);
+    padding: 0.6rem 0.9rem;
+    font-size: 0.875rem;
+    font-family:'DM Sans',sans-serif;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { outline:none; border-color:var(--sky); }
+  input[readonly] { opacity:0.5; cursor:not-allowed; }
+  select option { background:#111936; }
+
+  .readonly-info {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+
+  .error-box {
+    background: rgba(255,107,107,0.12);
+    border: 1px solid rgba(255,107,107,0.3);
+    color: #ff9999;
+    border-radius: 10px;
+    padding: 0.85rem 1.1rem;
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .form-actions { display:flex; gap:0.75rem; margin-top:1.5rem; flex-wrap:wrap; }
+  .btn {
+    display:inline-flex; align-items:center; gap:0.4rem;
+    padding:0.6rem 1.4rem; border-radius:8px; font-size:0.9rem;
+    font-weight:600; font-family:'DM Sans',sans-serif;
+    cursor:pointer; border:none; text-decoration:none; transition:all 0.2s;
+  }
+  .btn-primary { background:var(--sky); color:#fff; }
+  .btn-primary:hover { background:var(--blue); }
+  .btn-secondary { background:transparent; color:var(--muted); border:1px solid var(--border); }
+  .btn-secondary:hover { color:var(--white); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">
+    {% if mode == 'tambah' %}Tambah <span>Member Baru</span>{% else %}Edit <span>Data Member</span>{% endif %}
+  </h1>
+  <p class="subtitle">
+    {% if mode == 'tambah' %}Daftarkan member baru ke program AeroMiles{% else %}Perbarui data profil dan tier member{% endif %}
+  </p>
+</div>
+
+{% if error %}
+<div class="error-box">⚠ {{ error }}</div>
+{% endif %}
+
+<div class="form-card">
+  <form method="post">
+    {% csrf_token %}
+
+    <!-- Info akun -->
+    <div class="form-section">
+      <div class="section-title">📋 Informasi Akun</div>
+      <div class="form-grid">
+
+        {% if mode == 'edit' %}
+        <div class="form-group full">
+          <label>Email (tidak dapat diubah)</label>
+          <div class="readonly-info">{{ member.email }}</div>
+        </div>
+        <div class="form-group">
+          <label>Nomor Member</label>
+          <div class="readonly-info">{{ member.nomor_member }}</div>
+        </div>
+        <div class="form-group">
+          <label>Tanggal Bergabung</label>
+          <div class="readonly-info">{{ member.tanggal_bergabung }}</div>
+        </div>
+        {% else %}
+        <div class="form-group full">
+          <label for="email">Email *</label>
+          <input type="email" id="email" name="email" value="{{ request.POST.email }}" placeholder="contoh@email.com" required>
+        </div>
+        <div class="form-group full">
+          <label for="password">Password *</label>
+          <input type="password" id="password" name="password" placeholder="Minimal 8 karakter" required>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+
+    <!-- Profil -->
+    <div class="form-section">
+      <div class="section-title">👤 Data Profil</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="salutation">Salutation *</label>
+          <select id="salutation" name="salutation" required>
+            <option value="">Pilih...</option>
+            <option value="Mr."  {% if mode == 'edit' and member.salutation == 'Mr.'  %}selected{% elif request.POST.salutation == 'Mr.'  %}selected{% endif %}>Mr.</option>
+            <option value="Mrs." {% if mode == 'edit' and member.salutation == 'Mrs.' %}selected{% elif request.POST.salutation == 'Mrs.' %}selected{% endif %}>Mrs.</option>
+            <option value="Ms."  {% if mode == 'edit' and member.salutation == 'Ms.'  %}selected{% elif request.POST.salutation == 'Ms.'  %}selected{% endif %}>Ms.</option>
+            <option value="Dr."  {% if mode == 'edit' and member.salutation == 'Dr.'  %}selected{% elif request.POST.salutation == 'Dr.'  %}selected{% endif %}>Dr.</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="kewarganegaraan">Kewarganegaraan *</label>
+          <input type="text" id="kewarganegaraan" name="kewarganegaraan"
+                 value="{% if mode == 'edit' %}{{ member.kewarganegaraan }}{% else %}{{ request.POST.kewarganegaraan }}{% endif %}"
+                 placeholder="Indonesia" required>
+        </div>
+        <div class="form-group">
+          <label for="first_mid_name">Nama Depan & Tengah *</label>
+          <input type="text" id="first_mid_name" name="first_mid_name"
+                 value="{% if mode == 'edit' %}{{ member.first_mid_name }}{% else %}{{ request.POST.first_mid_name }}{% endif %}"
+                 placeholder="Nama depan & tengah" required>
+        </div>
+        <div class="form-group">
+          <label for="last_name">Nama Belakang *</label>
+          <input type="text" id="last_name" name="last_name"
+                 value="{% if mode == 'edit' %}{{ member.last_name }}{% else %}{{ request.POST.last_name }}{% endif %}"
+                 placeholder="Nama belakang" required>
+        </div>
+        <div class="form-group">
+          <label for="tanggal_lahir">Tanggal Lahir *</label>
+          <input type="date" id="tanggal_lahir" name="tanggal_lahir"
+                 value="{% if mode == 'edit' %}{{ member.tanggal_lahir }}{% else %}{{ request.POST.tanggal_lahir }}{% endif %}" required>
+        </div>
+        <div class="form-group">
+          <label for="country_code">Kode Negara Telepon *</label>
+          <input type="text" id="country_code" name="country_code"
+                 value="{% if mode == 'edit' %}{{ member.country_code }}{% else %}{{ request.POST.country_code }}{% endif %}"
+                 placeholder="+62" required>
+        </div>
+        <div class="form-group full">
+          <label for="mobile_number">Nomor HP *</label>
+          <input type="text" id="mobile_number" name="mobile_number"
+                 value="{% if mode == 'edit' %}{{ member.mobile_number }}{% else %}{{ request.POST.mobile_number }}{% endif %}"
+                 placeholder="08xxxxxxxxxx" required>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tier (hanya edit) -->
+    {% if mode == 'edit' %}
+    <div class="form-section">
+      <div class="section-title">🏅 Tier Member</div>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label for="id_tier">Tier *</label>
+          <select id="id_tier" name="id_tier" required>
+            {% for t in tier_list %}
+            <option value="{{ t.id_tier }}" {% if member.id_tier == t.id_tier %}selected{% endif %}>{{ t.nama }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Total Miles (saat ini)</label>
+          <div class="readonly-info">{{ member.total_miles }}</div>
+        </div>
+        <div class="form-group">
+          <label>Award Miles (saat ini)</label>
+          <div class="readonly-info">{{ member.award_miles }}</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">
+        {% if mode == 'tambah' %}✚ Tambah Member{% else %}💾 Simpan Perubahan{% endif %}
+      </button>
+      <a href="{% url 'member_list_staf' %}" class="btn btn-secondary">Batal</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

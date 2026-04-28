@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}Hapus Member – AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+  .confirm-card {
+    max-width: 480px;
+    margin: 4rem auto;
+    background: var(--card);
+    border: 1px solid rgba(255,107,107,0.3);
+    border-radius: 16px;
+    padding: 2.5rem;
+    text-align: center;
+  }
+  .confirm-icon { font-size: 3rem; margin-bottom: 1rem; }
+  .confirm-title {
+    font-family:'Syne',sans-serif;
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #ff9999;
+    margin-bottom: 0.75rem;
+  }
+  .confirm-body { color: var(--muted); font-size: 0.9rem; line-height: 1.6; }
+  .confirm-body strong { color: var(--white); }
+  .warn-box {
+    background: rgba(255,107,107,0.1);
+    border: 1px solid rgba(255,107,107,0.25);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    font-size: 0.82rem;
+    color: #ff9999;
+    margin: 1.25rem 0;
+    text-align: left;
+  }
+  .confirm-actions { display:flex; gap:0.75rem; justify-content:center; margin-top:1.5rem; }
+  .btn { display:inline-flex; align-items:center; gap:0.4rem; padding:0.6rem 1.4rem; border-radius:8px; font-size:0.9rem; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; border:none; text-decoration:none; transition:all 0.2s; }
+  .btn-danger { background:rgba(255,107,107,0.85); color:#fff; }
+  .btn-danger:hover { background:#e55; }
+  .btn-secondary { background:transparent; color:var(--muted); border:1px solid var(--border); }
+  .btn-secondary:hover { color:var(--white); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="confirm-card">
+  <div class="confirm-icon">⚠️</div>
+  <h2 class="confirm-title">Hapus Member?</h2>
+  <p class="confirm-body">
+    Anda akan menghapus <strong>{{ nama }}</strong><br>
+    <strong>{{ nomor_member }}</strong> &mdash; <span style="font-size:0.8rem">{{ email }}</span>
+  </p>
+  <div class="warn-box">
+    ⚠ Tindakan ini <strong>tidak dapat dibatalkan</strong>. Seluruh data terkait member (identitas, klaim, transfer, redeem) akan ikut terhapus secara permanen.
+  </div>
+  <div class="confirm-actions">
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">🗑 Ya, Hapus Member</button>
+    </form>
+    <a href="{% url 'member_list_staf' %}" class="btn btn-secondary">Batal</a>
+  </div>
+</div>
+{% endblock %}

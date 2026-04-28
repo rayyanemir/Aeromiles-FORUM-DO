@@ -2,6 +2,12 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Fitur 7 – CRUD Manajemen Identitas (Member)
+    path('identitas/',                      views.identitas_list,   name='identitas_list'),
+    path('identitas/tambah/',               views.identitas_tambah, name='identitas_tambah'),
+    path('identitas/<str:nomor>/edit/',     views.identitas_edit,   name='identitas_edit'),
+    path('identitas/<str:nomor>/hapus/',    views.identitas_hapus,  name='identitas_hapus'),
+
     # Fitur 8 - Claim Missing Miles
     path('klaim/', views.klaim_list, name='klaim_list'),
     path('klaim/buat/', views.klaim_buat, name='klaim_buat'),

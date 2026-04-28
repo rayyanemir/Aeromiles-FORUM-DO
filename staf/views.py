@@ -3,6 +3,8 @@ from django.contrib import messages
 from django.db import connection, transaction
 from django.utils import timezone
 from member.tier_logic import sync_member_tier
+# new
+import hashlib
 
 
 def login_required_staf(view_func):
@@ -513,3 +515,296 @@ def klaim_proses(request, id):
         return redirect('kelola_klaim')
 
     return render(request, 'staf/klaim_proses.html', {'klaim': klaim})
+
+"""
+Tambahkan import & fungsi berikut ke dalam staf/views.py (di bawah import yang sudah ada)
+"""
+
+# ─────────────────────────────────────────────
+# FITUR 6  –  CRUD MANAJEMEN DATA MEMBER (STAF)
+# ─────────────────────────────────────────────
+
+import hashlib
+
+def hash_password(raw: str) -> str:
+    """SHA-256 sederhana – sesuaikan dengan skema hash project."""
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def get_tier_list():
+    with connection.cursor() as c:
+        c.execute("SELECT id_tier, nama FROM tier ORDER BY minimal_tier_miles ASC")
+        return [{'id_tier': r[0], 'nama': r[1]} for r in c.fetchall()]
+
+
+def get_lowest_tier_id():
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT id_tier FROM tier
+            ORDER BY minimal_tier_miles ASC, minimal_frekuensi_terbang ASC
+            LIMIT 1
+        """)
+        row = c.fetchone()
+    return row[0] if row else None
+
+
+def generate_nomor_member():
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT nomor_member FROM member
+            ORDER BY nomor_member DESC
+            LIMIT 1
+        """)
+        row = c.fetchone()
+    if row:
+        last_num = int(row[0][1:])
+        return f"M{last_num + 1:04d}"
+    return "M0001"
+
+
+# ── READ ──────────────────────────────────────
+
+@login_required_staf
+def member_list(request):
+    search    = request.GET.get('search', '').strip()
+    tier_filter = request.GET.get('tier', '').strip()
+
+    query = """
+        SELECT m.nomor_member,
+               p.salutation || ' ' || p.first_mid_name || ' ' || p.last_name AS nama,
+               m.email,
+               t.nama  AS tier_nama,
+               m.id_tier,
+               COALESCE(m.total_miles, 0),
+               COALESCE(m.award_miles, 0),
+               m.tanggal_bergabung
+        FROM member m
+        JOIN pengguna p ON m.email = p.email
+        JOIN tier t     ON m.id_tier = t.id_tier
+        WHERE 1=1
+    """
+    params = []
+
+    if search:
+        query += " AND (p.first_mid_name ILIKE %s OR p.last_name ILIKE %s OR m.email ILIKE %s OR m.nomor_member ILIKE %s)"
+        kw = f"%{search}%"
+        params.extend([kw, kw, kw, kw])
+
+    if tier_filter:
+        query += " AND m.id_tier = %s"
+        params.append(tier_filter)
+
+    query += " ORDER BY m.tanggal_bergabung DESC, m.nomor_member"
+
+    with connection.cursor() as c:
+        c.execute(query, params)
+        rows = c.fetchall()
+
+    members = [{
+        'nomor_member':     r[0],
+        'nama':             r[1],
+        'email':            r[2],
+        'tier_nama':        r[3],
+        'id_tier':          r[4],
+        'total_miles':      r[5],
+        'award_miles':      r[6],
+        'tanggal_bergabung': r[7],
+    } for r in rows]
+
+    return render(request, 'staf/member_list.html', {
+        'members':    members,
+        'tier_list':  get_tier_list(),
+        'search':     search,
+        'tier_filter': tier_filter,
+    })
+
+
+# ── CREATE ────────────────────────────────────
+
+@login_required_staf
+def member_tambah(request):
+    error = None
+    tier_list = get_tier_list()
+
+    if request.method == 'POST':
+        d = request.POST
+        email       = d.get('email', '').strip().lower()
+        password    = d.get('password', '').strip()
+        salutation  = d.get('salutation', '').strip()
+        first_mid   = d.get('first_mid_name', '').strip()
+        last_name   = d.get('last_name', '').strip()
+        cc          = d.get('country_code', '').strip()
+        mobile      = d.get('mobile_number', '').strip()
+        tgl_lahir   = d.get('tanggal_lahir', '').strip()
+        kewargaan   = d.get('kewarganegaraan', '').strip()
+
+        if not all([email, password, salutation, first_mid, last_name, cc, mobile, tgl_lahir, kewargaan]):
+            error = 'Semua field wajib diisi.'
+        else:
+            # cek duplikat email
+            with connection.cursor() as c:
+                c.execute("SELECT 1 FROM pengguna WHERE email = %s", [email])
+                if c.fetchone():
+                    error = 'Email sudah terdaftar dalam sistem.'
+
+        if not error:
+            try:
+                nomor_member = generate_nomor_member()
+                tier_id      = get_lowest_tier_id()
+                hashed_pw    = hash_password(password)
+
+                with transaction.atomic():
+                    with connection.cursor() as c:
+                        c.execute("""
+                            INSERT INTO pengguna
+                                (email, password, salutation, first_mid_name, last_name,
+                                 country_code, mobile_number, tanggal_lahir, kewarganegaraan)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, [email, hashed_pw, salutation, first_mid, last_name,
+                              cc, mobile, tgl_lahir, kewargaan])
+
+                        c.execute("""
+                            INSERT INTO member
+                                (email, nomor_member, tanggal_bergabung, id_tier, award_miles, total_miles)
+                            VALUES (%s, %s, CURRENT_DATE, %s, 0, 0)
+                        """, [email, nomor_member, tier_id])
+
+                messages.success(request, f'Member {nomor_member} berhasil ditambahkan.')
+                return redirect('member_list_staf')
+            except Exception as e:
+                error = f'Gagal menambahkan member: {e}'
+
+    return render(request, 'staf/member_form.html', {
+        'mode':      'tambah',
+        'error':     error,
+        'tier_list': tier_list,
+    })
+
+
+# ── UPDATE ────────────────────────────────────
+
+@login_required_staf
+def member_edit(request, email):
+    tier_list = get_tier_list()
+    error     = None
+
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT p.salutation, p.first_mid_name, p.last_name,
+                   p.country_code, p.mobile_number, p.tanggal_lahir,
+                   p.kewarganegaraan,
+                   m.nomor_member, m.tanggal_bergabung, m.id_tier,
+                   COALESCE(m.award_miles,0), COALESCE(m.total_miles,0)
+            FROM pengguna p
+            JOIN member m ON m.email = p.email
+            WHERE p.email = %s
+        """, [email])
+        row = c.fetchone()
+
+    if not row:
+        messages.error(request, 'Member tidak ditemukan.')
+        return redirect('member_list_staf')
+
+    member = {
+        'email':            email,
+        'salutation':       row[0],
+        'first_mid_name':   row[1],
+        'last_name':        row[2],
+        'country_code':     row[3],
+        'mobile_number':    row[4],
+        'tanggal_lahir':    row[5].strftime('%Y-%m-%d') if row[5] else '',
+        'kewarganegaraan':  row[6],
+        'nomor_member':     row[7],
+        'tanggal_bergabung': row[8],
+        'id_tier':          row[9],
+        'award_miles':      row[10],
+        'total_miles':      row[11],
+    }
+
+    if request.method == 'POST':
+        d = request.POST
+        salutation  = d.get('salutation', '').strip()
+        first_mid   = d.get('first_mid_name', '').strip()
+        last_name   = d.get('last_name', '').strip()
+        cc          = d.get('country_code', '').strip()
+        mobile      = d.get('mobile_number', '').strip()
+        tgl_lahir   = d.get('tanggal_lahir', '').strip()
+        kewargaan   = d.get('kewarganegaraan', '').strip()
+        id_tier     = d.get('id_tier', '').strip()
+
+        if not all([salutation, first_mid, last_name, cc, mobile, tgl_lahir, kewargaan, id_tier]):
+            error = 'Semua field wajib diisi.'
+        else:
+            try:
+                with transaction.atomic():
+                    with connection.cursor() as c:
+                        c.execute("""
+                            UPDATE pengguna SET
+                                salutation=%s, first_mid_name=%s, last_name=%s,
+                                country_code=%s, mobile_number=%s,
+                                tanggal_lahir=%s, kewarganegaraan=%s
+                            WHERE email=%s
+                        """, [salutation, first_mid, last_name, cc, mobile,
+                              tgl_lahir, kewargaan, email])
+
+                        c.execute("""
+                            UPDATE member SET id_tier=%s WHERE email=%s
+                        """, [id_tier, email])
+
+                messages.success(request, 'Data member berhasil diperbarui.')
+                return redirect('member_list_staf')
+            except Exception as e:
+                error = f'Gagal memperbarui data: {e}'
+
+        member.update({
+            'salutation': salutation, 'first_mid_name': first_mid,
+            'last_name': last_name, 'country_code': cc,
+            'mobile_number': mobile, 'tanggal_lahir': tgl_lahir,
+            'kewarganegaraan': kewargaan, 'id_tier': id_tier,
+        })
+
+    return render(request, 'staf/member_form.html', {
+        'mode':      'edit',
+        'member':    member,
+        'tier_list': tier_list,
+        'error':     error,
+    })
+
+
+# ── DELETE ────────────────────────────────────
+
+@login_required_staf
+def member_hapus(request, email):
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT p.salutation || ' ' || p.first_mid_name || ' ' || p.last_name,
+                   m.nomor_member
+            FROM pengguna p
+            JOIN member m ON m.email = p.email
+            WHERE p.email = %s
+        """, [email])
+        row = c.fetchone()
+
+    if not row:
+        messages.error(request, 'Member tidak ditemukan.')
+        return redirect('member_list_staf')
+
+    nama, nomor_member = row
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                with connection.cursor() as c:
+                    # ON DELETE CASCADE sudah handle relasi child
+                    c.execute("DELETE FROM member  WHERE email = %s", [email])
+                    c.execute("DELETE FROM pengguna WHERE email = %s", [email])
+            messages.success(request, f'Member {nomor_member} ({nama}) berhasil dihapus.')
+        except Exception as e:
+            messages.error(request, f'Gagal menghapus member: {e}')
+        return redirect('member_list_staf')
+
+    return render(request, 'staf/member_hapus.html', {
+        'email':        email,
+        'nama':         nama,
+        'nomor_member': nomor_member,
+    })

@@ -3,6 +3,8 @@ from django.contrib import messages
 from django.db import connection, transaction
 from datetime import date, datetime
 from .tier_logic import sync_member_tier
+# new
+from datetime import date as _date
 
 
 def login_required_member(view_func):
@@ -807,3 +809,197 @@ def transfer_buat(request):
         'award_miles': award_miles,
         'error':       error,
     })
+
+"""
+Tambahkan import & fungsi berikut ke dalam member/views.py (di bawah fungsi yang sudah ada)
+"""
+
+# ─────────────────────────────────────────────
+# FITUR 7  –  CRUD MANAJEMEN IDENTITAS (MEMBER)
+# ─────────────────────────────────────────────
+
+
+def get_identitas_list(email_member: str):
+    today = _date.today()
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT nomor, jenis, negara_penerbit,
+                   tanggal_terbit, tanggal_habis
+            FROM identitas
+            WHERE email_member = %s
+            ORDER BY tanggal_habis ASC
+        """, [email_member])
+        rows = c.fetchall()
+
+    result = []
+    for r in rows:
+        tgl_habis = r[4]
+        if tgl_habis < today:
+            status = 'kadaluarsa'
+        elif (tgl_habis - today).days <= 90:
+            status = 'segera_habis'
+        else:
+            status = 'aktif'
+
+        result.append({
+            'nomor':           r[0],
+            'jenis':           r[1],
+            'negara_penerbit': r[2],
+            'tanggal_terbit':  r[3],
+            'tanggal_habis':   tgl_habis,
+            'status':          status,
+        })
+    return result
+
+
+# ── READ ──────────────────────────────────────
+
+@login_required_member
+def identitas_list(request):
+    email = request.session['user_email']
+    return render(request, 'member/identitas_list.html', {
+        'identitas_list': get_identitas_list(email),
+        'today': _date.today(),
+    })
+
+
+# ── CREATE ────────────────────────────────────
+
+@login_required_member
+def identitas_tambah(request):
+    email = request.session['user_email']
+    error = None
+
+    if request.method == 'POST':
+        d           = request.POST
+        nomor       = d.get('nomor', '').strip()
+        jenis       = d.get('jenis', '').strip()
+        negara      = d.get('negara_penerbit', '').strip()
+        tgl_terbit  = d.get('tanggal_terbit', '').strip()
+        tgl_habis   = d.get('tanggal_habis', '').strip()
+
+        if not all([nomor, jenis, negara, tgl_terbit, tgl_habis]):
+            error = 'Semua field wajib diisi.'
+        elif jenis not in ('Paspor', 'KTP', 'SIM'):
+            error = 'Jenis identitas tidak valid.'
+        elif tgl_terbit >= tgl_habis:
+            error = 'Tanggal habis harus setelah tanggal terbit.'
+        else:
+            with connection.cursor() as c:
+                c.execute("SELECT 1 FROM identitas WHERE nomor = %s", [nomor])
+                if c.fetchone():
+                    error = 'Nomor dokumen sudah terdaftar dalam sistem.'
+
+        if not error:
+            try:
+                with connection.cursor() as c:
+                    c.execute("""
+                        INSERT INTO identitas
+                            (nomor, email_member, jenis, negara_penerbit,
+                             tanggal_terbit, tanggal_habis)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, [nomor, email, jenis, negara, tgl_terbit, tgl_habis])
+                messages.success(request, f'Identitas {jenis} ({nomor}) berhasil ditambahkan.')
+                return redirect('identitas_list')
+            except Exception as e:
+                error = f'Gagal menyimpan identitas: {e}'
+
+    return render(request, 'member/identitas_form.html', {
+        'mode':  'tambah',
+        'error': error,
+    })
+
+
+# ── UPDATE ────────────────────────────────────
+
+@login_required_member
+def identitas_edit(request, nomor):
+    email = request.session['user_email']
+    error = None
+
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT nomor, jenis, negara_penerbit, tanggal_terbit, tanggal_habis
+            FROM identitas
+            WHERE nomor = %s AND email_member = %s
+        """, [nomor, email])
+        row = c.fetchone()
+
+    if not row:
+        messages.error(request, 'Dokumen identitas tidak ditemukan.')
+        return redirect('identitas_list')
+
+    identitas = {
+        'nomor':           row[0],
+        'jenis':           row[1],
+        'negara_penerbit': row[2],
+        'tanggal_terbit':  row[3].strftime('%Y-%m-%d') if row[3] else '',
+        'tanggal_habis':   row[4].strftime('%Y-%m-%d') if row[4] else '',
+    }
+
+    if request.method == 'POST':
+        d          = request.POST
+        jenis      = d.get('jenis', '').strip()
+        negara     = d.get('negara_penerbit', '').strip()
+        tgl_terbit = d.get('tanggal_terbit', '').strip()
+        tgl_habis  = d.get('tanggal_habis', '').strip()
+
+        if not all([jenis, negara, tgl_terbit, tgl_habis]):
+            error = 'Semua field wajib diisi.'
+        elif jenis not in ('Paspor', 'KTP', 'SIM'):
+            error = 'Jenis identitas tidak valid.'
+        elif tgl_terbit >= tgl_habis:
+            error = 'Tanggal habis harus setelah tanggal terbit.'
+        else:
+            try:
+                with connection.cursor() as c:
+                    c.execute("""
+                        UPDATE identitas SET
+                            jenis=%s, negara_penerbit=%s,
+                            tanggal_terbit=%s, tanggal_habis=%s
+                        WHERE nomor=%s AND email_member=%s
+                    """, [jenis, negara, tgl_terbit, tgl_habis, nomor, email])
+                messages.success(request, 'Identitas berhasil diperbarui.')
+                return redirect('identitas_list')
+            except Exception as e:
+                error = f'Gagal memperbarui identitas: {e}'
+
+        identitas.update({
+            'jenis': jenis, 'negara_penerbit': negara,
+            'tanggal_terbit': tgl_terbit, 'tanggal_habis': tgl_habis,
+        })
+
+    return render(request, 'member/identitas_form.html', {
+        'mode':      'edit',
+        'identitas': identitas,
+        'error':     error,
+    })
+
+
+# ── DELETE ────────────────────────────────────
+
+@login_required_member
+def identitas_hapus(request, nomor):
+    email = request.session['user_email']
+
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT nomor, jenis, negara_penerbit
+            FROM identitas
+            WHERE nomor=%s AND email_member=%s
+        """, [nomor, email])
+        row = c.fetchone()
+
+    if not row:
+        messages.error(request, 'Dokumen identitas tidak ditemukan.')
+        return redirect('identitas_list')
+
+    identitas = {'nomor': row[0], 'jenis': row[1], 'negara_penerbit': row[2]}
+
+    if request.method == 'POST':
+        with connection.cursor() as c:
+            c.execute("DELETE FROM identitas WHERE nomor=%s AND email_member=%s", [nomor, email])
+        messages.success(request, f'Identitas {identitas["jenis"]} ({nomor}) berhasil dihapus.')
+        return redirect('identitas_list')
+
+    return render(request, 'member/identitas_hapus.html', {'identitas': identitas})

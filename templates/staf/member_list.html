@@ -1,0 +1,216 @@
+{% extends 'base.html' %}
+{% block title %}Kelola Member – AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--white);
+  }
+  .page-title span { color: var(--accent); }
+  .subtitle { color: var(--muted); font-size: 0.875rem; margin-top: 0.25rem; }
+
+  /* Filter bar */
+  .filter-bar {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  .filter-bar input,
+  .filter-bar select {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--white);
+    padding: 0.5rem 0.85rem;
+    font-size: 0.875rem;
+    font-family: 'DM Sans', sans-serif;
+    flex: 1;
+    min-width: 180px;
+  }
+  .filter-bar input::placeholder { color: var(--muted); }
+  .filter-bar select option { background: #111936; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1.1rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-primary  { background: var(--sky); color: #fff; }
+  .btn-primary:hover  { background: var(--blue); }
+  .btn-warning  { background: rgba(245,166,35,0.18); color: var(--accent); border: 1px solid rgba(245,166,35,0.3); }
+  .btn-warning:hover  { background: rgba(245,166,35,0.28); }
+  .btn-danger   { background: rgba(255,107,107,0.14); color: #ff9999; border: 1px solid rgba(255,107,107,0.3); }
+  .btn-danger:hover   { background: rgba(255,107,107,0.24); }
+  .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+  .btn-filter { background: var(--sky); color: #fff; }
+  .btn-reset  { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-reset:hover { color: var(--white); }
+
+  /* Table */
+  .table-wrapper {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: rgba(255,255,255,0.05); }
+  th {
+    padding: 0.85rem 1rem;
+    text-align: left;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  td { padding: 0.85rem 1rem; font-size: 0.875rem; border-top: 1px solid var(--border); vertical-align: middle; }
+  tr:hover td { background: rgba(255,255,255,0.03); }
+
+  /* Tier badge */
+  .tier-badge {
+    display: inline-block;
+    padding: 0.2rem 0.65rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .tier-blue     { background: rgba(47,123,234,0.2);  color: #82b4f5; border: 1px solid rgba(47,123,234,0.3); }
+  .tier-silver   { background: rgba(192,192,192,0.15); color: #d0d0d0; border: 1px solid rgba(192,192,192,0.25); }
+  .tier-gold     { background: rgba(245,166,35,0.18);  color: var(--accent-light); border: 1px solid rgba(245,166,35,0.3); }
+  .tier-platinum { background: rgba(180,120,255,0.18); color: #c8a8ff; border: 1px solid rgba(180,120,255,0.3); }
+
+  /* Miles */
+  .miles-val { font-family: 'Syne', sans-serif; font-weight: 700; }
+  .miles-total  { color: var(--white); }
+  .miles-award  { color: var(--accent); }
+
+  /* Actions */
+  .actions { display: flex; gap: 0.4rem; flex-wrap: nowrap; }
+
+  /* Empty */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--muted);
+  }
+  .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
+  .empty-state p { font-size: 0.9rem; }
+
+  /* Count */
+  .result-count {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+  .result-count strong { color: var(--white); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Kelola <span>Member</span></h1>
+    <p class="subtitle">Manajemen seluruh data member program AeroMiles</p>
+  </div>
+  <a href="{% url 'member_tambah' %}" class="btn btn-primary">＋ Tambah Member</a>
+</div>
+
+<!-- Filter -->
+<form method="get" class="filter-bar">
+  <input type="text" name="search" value="{{ search }}" placeholder="Cari nama, email, atau nomor member…">
+  <select name="tier">
+    <option value="">Semua Tier</option>
+    {% for t in tier_list %}
+      <option value="{{ t.id_tier }}" {% if tier_filter == t.id_tier %}selected{% endif %}>{{ t.nama }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-filter">Cari</button>
+  <a href="{% url 'member_list_staf' %}" class="btn btn-reset">Reset</a>
+</form>
+
+<p class="result-count">Menampilkan <strong>{{ members|length }}</strong> member</p>
+
+<div class="table-wrapper">
+  {% if members %}
+  <table>
+    <thead>
+      <tr>
+        <th>No. Member</th>
+        <th>Nama Lengkap</th>
+        <th>Email</th>
+        <th>Tier</th>
+        <th>Total Miles</th>
+        <th>Award Miles</th>
+        <th>Bergabung</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in members %}
+      <tr>
+        <td><strong>{{ m.nomor_member }}</strong></td>
+        <td>{{ m.nama }}</td>
+        <td style="color:var(--muted);font-size:0.82rem;">{{ m.email }}</td>
+        <td>
+          <span class="tier-badge
+            {% if 'Blue' in m.tier_nama %}tier-blue
+            {% elif 'Silver' in m.tier_nama %}tier-silver
+            {% elif 'Gold' in m.tier_nama %}tier-gold
+            {% elif 'Platinum' in m.tier_nama %}tier-platinum
+            {% else %}tier-blue{% endif %}">
+            {{ m.tier_nama }}
+          </span>
+        </td>
+        <td><span class="miles-val miles-total">{{ m.total_miles|default:0 }}</span></td>
+        <td><span class="miles-val miles-award">{{ m.award_miles|default:0 }}</span></td>
+        <td style="color:var(--muted);font-size:0.82rem;">{{ m.tanggal_bergabung }}</td>
+        <td>
+          <div class="actions">
+            <a href="{% url 'member_edit' m.email %}" class="btn btn-warning btn-sm">✏️ Edit</a>
+            <a href="{% url 'member_hapus' m.email %}" class="btn btn-danger btn-sm">🗑 Hapus</a>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <div class="icon">👥</div>
+    <p>Tidak ada member yang ditemukan{% if search or tier_filter %} sesuai filter{% endif %}.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
