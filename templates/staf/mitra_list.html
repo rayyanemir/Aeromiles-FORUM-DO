@@ -1,0 +1,727 @@
+{% extends 'base.html' %}
+{% block title %}Kelola Mitra - AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.75rem;
+    }
+
+    .page-title {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: var(--white);
+    }
+
+    .page-title span {
+        color: var(--accent);
+    }
+
+    .subtitle {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-top: 0.3rem;
+    }
+
+    .summary-card,
+    .table-card,
+    .modal-card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 12px 28px rgba(7, 14, 36, 0.08);
+    }
+
+    .summary-card {
+        border-radius: 16px;
+        padding: 1rem 1.1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .summary-label {
+        color: var(--muted);
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.35rem;
+    }
+
+    .summary-value {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.55rem;
+        font-weight: 700;
+        color: var(--white);
+    }
+
+    .summary-note {
+        color: var(--muted);
+        font-size: 0.84rem;
+    }
+
+    .filter-bar {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        padding: 1rem 1.1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        gap: 0.85rem;
+        flex-wrap: wrap;
+        align-items: flex-end;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.38rem;
+        min-width: 180px;
+        flex: 1;
+    }
+
+    .filter-group.filter-sort {
+        flex: 0 1 240px;
+    }
+
+    .filter-group label {
+        color: var(--muted);
+        font-size: 0.74rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 600;
+    }
+
+    .filter-group input,
+    .filter-group select {
+        width: 100%;
+        padding: 0.72rem 0.9rem;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px;
+        color: var(--white);
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.88rem;
+        outline: none;
+        transition: all 0.2s;
+    }
+
+    .filter-group input::placeholder {
+        color: var(--muted);
+    }
+
+    .filter-group select option {
+        background: #111936;
+    }
+
+    .filter-group input:focus,
+    .filter-group select:focus {
+        border-color: rgba(47,123,234,0.45);
+        box-shadow: 0 0 0 3px rgba(47,123,234,0.12);
+        background: rgba(47,123,234,0.08);
+    }
+
+    .filter-actions {
+        display: flex;
+        gap: 0.65rem;
+        flex-wrap: wrap;
+    }
+
+    .result-meta {
+        color: var(--muted);
+        font-size: 0.84rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .result-meta strong {
+        color: var(--white);
+    }
+
+    .table-card {
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.86rem;
+    }
+
+    thead th {
+        text-align: left;
+        padding: 0.95rem 1rem;
+        color: var(--muted);
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        font-weight: 600;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+        background: rgba(255,255,255,0.03);
+        white-space: nowrap;
+    }
+
+    tbody td {
+        padding: 0.95rem 1rem;
+        color: var(--white);
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        vertical-align: middle;
+    }
+
+    tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    tbody tr:hover td {
+        background: rgba(255,255,255,0.025);
+    }
+
+    .email-cell {
+        color: var(--muted);
+        font-size: 0.83rem;
+    }
+
+    .date-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.28rem 0.72rem;
+        border-radius: 999px;
+        background: rgba(47,123,234,0.12);
+        border: 1px solid rgba(47,123,234,0.22);
+        color: #82b4f5;
+        font-size: 0.76rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .actions {
+        display: flex;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        padding: 0.58rem 1.05rem;
+        border-radius: 10px;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.86rem;
+        font-weight: 600;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+
+    .btn-primary {
+        background: var(--sky);
+        color: var(--white);
+    }
+
+    .btn-primary:hover {
+        background: var(--blue);
+    }
+
+    .btn-secondary {
+        background: rgba(255,255,255,0.06);
+        color: var(--muted);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .btn-secondary:hover {
+        color: var(--white);
+        background: rgba(255,255,255,0.1);
+    }
+
+    .btn-warning {
+        background: rgba(245,166,35,0.14);
+        color: var(--accent-light);
+        border: 1px solid rgba(245,166,35,0.24);
+    }
+
+    .btn-warning:hover {
+        background: rgba(245,166,35,0.22);
+    }
+
+    .btn-danger {
+        background: rgba(255,107,107,0.12);
+        color: #ff9999;
+        border: 1px solid rgba(255,107,107,0.24);
+    }
+
+    .btn-danger:hover {
+        background: rgba(255,107,107,0.18);
+    }
+
+    .btn-sm {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3.5rem 2rem;
+        color: var(--muted);
+    }
+
+    .empty-icon {
+        font-size: 2.8rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1.25rem;
+        background: rgba(6, 10, 26, 0.68);
+        backdrop-filter: blur(4px);
+        z-index: 50;
+    }
+
+    .modal-backdrop.show {
+        display: flex;
+    }
+
+    .modal-card {
+        width: min(100%, 520px);
+        border-radius: 18px;
+        padding: 1.35rem;
+        animation: modalIn 0.2s ease;
+    }
+
+    .modal-card.modal-sm {
+        width: min(100%, 430px);
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .modal-title {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--white);
+    }
+
+    .modal-subtitle {
+        color: var(--muted);
+        font-size: 0.86rem;
+        margin-top: 0.2rem;
+        line-height: 1.5;
+    }
+
+    .modal-close {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.1);
+        background: rgba(255,255,255,0.04);
+        color: var(--muted);
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 1rem;
+    }
+
+    .modal-close:hover {
+        color: var(--white);
+        background: rgba(255,255,255,0.08);
+    }
+
+    .form-grid {
+        display: grid;
+        gap: 0.95rem;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.38rem;
+    }
+
+    .form-group label {
+        color: var(--muted);
+        font-size: 0.74rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 600;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 0.72rem 0.9rem;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px;
+        color: var(--white);
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.88rem;
+        outline: none;
+        transition: all 0.2s;
+    }
+
+    .form-group input:focus {
+        border-color: rgba(47,123,234,0.45);
+        box-shadow: 0 0 0 3px rgba(47,123,234,0.12);
+        background: rgba(47,123,234,0.08);
+    }
+
+    .form-group input:disabled {
+        color: var(--muted);
+        background: rgba(255,255,255,0.03);
+        cursor: not-allowed;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.65rem;
+        margin-top: 1.25rem;
+        flex-wrap: wrap;
+    }
+
+    .danger-copy {
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+    }
+
+    .danger-target {
+        display: inline-block;
+        margin-top: 0.45rem;
+        color: var(--white);
+        font-weight: 700;
+    }
+
+    @keyframes modalIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px) scale(0.98);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .page-header {
+            align-items: stretch;
+        }
+
+        .page-header .btn {
+            width: 100%;
+        }
+
+        .table-card {
+            overflow-x: auto;
+        }
+
+        .summary-card {
+            align-items: flex-start;
+        }
+
+        .modal-card,
+        .modal-card.modal-sm {
+            width: 100%;
+        }
+
+        .modal-actions .btn {
+            flex: 1;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Kelola <span>Mitra</span></h1>
+        <p class="subtitle">Manajemen data mitra dan kerja sama program AeroMiles.</p>
+    </div>
+    <button type="button" class="btn btn-primary" data-open-modal="createModal">+ Tambah Mitra</button>
+</div>
+
+<div class="summary-card">
+    <div>
+        <div class="summary-label">Total Mitra</div>
+        <div class="summary-value">{{ mitras|length }}</div>
+    </div>
+    <p class="summary-note">Daftar ini menampilkan seluruh mitra yang aktif tercatat di sistem.</p>
+</div>
+
+<form method="GET" class="filter-bar">
+    <div class="filter-group">
+        <label for="search">Cari Nama Mitra</label>
+        <input
+            id="search"
+            type="text"
+            name="search"
+            value="{{ search }}"
+            placeholder="Masukkan nama mitra..."
+        >
+    </div>
+    <div class="filter-group filter-sort">
+        <label for="sort">Urutkan Berdasarkan</label>
+        <select id="sort" name="sort">
+            <option value="nama_asc" {% if sort == 'nama_asc' %}selected{% endif %}>Nama A-Z</option>
+            <option value="nama_desc" {% if sort == 'nama_desc' %}selected{% endif %}>Nama Z-A</option>
+            <option value="tanggal_asc" {% if sort == 'tanggal_asc' %}selected{% endif %}>Tanggal Terlama</option>
+            <option value="tanggal_desc" {% if sort == 'tanggal_desc' %}selected{% endif %}>Tanggal Terbaru</option>
+        </select>
+    </div>
+    <div class="filter-actions">
+        <button type="submit" class="btn btn-primary">Terapkan</button>
+        <a href="{% url 'mitra_list' %}" class="btn btn-secondary">Reset</a>
+    </div>
+</form>
+
+<p class="result-meta">Menampilkan <strong>{{ mitras|length }}</strong> mitra{% if search %} untuk pencarian "<strong>{{ search }}</strong>"{% endif %}.</p>
+
+<div class="table-card">
+    {% if mitras %}
+    <table>
+        <thead>
+            <tr>
+                <th>Email Mitra</th>
+                <th>Nama Mitra</th>
+                <th>Tanggal Kerja Sama</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in mitras %}
+            <tr>
+                <td class="email-cell">{{ m.email }}</td>
+                <td><strong>{{ m.nama }}</strong></td>
+                <td><span class="date-pill">{{ m.tanggal|date:"d M Y" }}</span></td>
+                <td>
+                    <div class="actions">
+                        <button
+                            type="button"
+                            class="btn btn-warning btn-sm"
+                            data-open-edit
+                            data-email="{{ m.email }}"
+                            data-nama="{{ m.nama }}"
+                            data-tanggal="{{ m.tanggal|date:'Y-m-d' }}"
+                        >
+                            Edit
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-danger btn-sm"
+                            data-open-delete
+                            data-email="{{ m.email }}"
+                            data-nama="{{ m.nama }}"
+                        >
+                            Hapus
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">✈</div>
+        <p>{% if search %}Tidak ada mitra yang cocok dengan pencarian saat ini.{% else %}Belum ada data mitra yang tersimpan.{% endif %}</p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="modal-backdrop" id="createModal">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="createModalTitle">
+        <div class="modal-header">
+            <div>
+                <h2 class="modal-title" id="createModalTitle">Tambah Mitra</h2>
+                <p class="modal-subtitle">Tambahkan mitra baru beserta tanggal mulai kerja samanya.</p>
+            </div>
+            <button type="button" class="modal-close" data-close-modal="createModal" aria-label="Tutup modal">✕</button>
+        </div>
+
+        <form method="POST" action="{% url 'mitra_create' %}">
+            {% csrf_token %}
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="create-email">Email Mitra</label>
+                    <input id="create-email" name="email" type="email" placeholder="contoh@mitra.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="create-nama">Nama Mitra</label>
+                    <input id="create-nama" name="nama" type="text" placeholder="Masukkan nama mitra" required>
+                </div>
+                <div class="form-group">
+                    <label for="create-tanggal">Tanggal Kerja Sama</label>
+                    <input id="create-tanggal" name="tanggal" type="date" required>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" data-close-modal="createModal">Batal</button>
+                <button type="submit" class="btn btn-primary">Simpan Mitra</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="editModal">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+        <div class="modal-header">
+            <div>
+                <h2 class="modal-title" id="editModalTitle">Edit Mitra</h2>
+                <p class="modal-subtitle">Perbarui nama atau tanggal kerja sama mitra yang dipilih.</p>
+            </div>
+            <button type="button" class="modal-close" data-close-modal="editModal" aria-label="Tutup modal">✕</button>
+        </div>
+
+        <form method="POST" id="editForm">
+            {% csrf_token %}
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="editEmail">Email Mitra</label>
+                    <input id="editEmail" type="text" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="editNama">Nama Mitra</label>
+                    <input id="editNama" name="nama" type="text" required>
+                </div>
+                <div class="form-group">
+                    <label for="editTanggal">Tanggal Kerja Sama</label>
+                    <input id="editTanggal" name="tanggal" type="date" required>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" data-close-modal="editModal">Batal</button>
+                <button type="submit" class="btn btn-warning">Simpan Perubahan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="deleteModal">
+    <div class="modal-card modal-sm" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+        <div class="modal-header">
+            <div>
+                <h2 class="modal-title" id="deleteModalTitle">Hapus Mitra</h2>
+                <p class="modal-subtitle">Tindakan ini akan menghapus data mitra dari daftar kerja sama.</p>
+            </div>
+            <button type="button" class="modal-close" data-close-modal="deleteModal" aria-label="Tutup modal">✕</button>
+        </div>
+
+        <p class="danger-copy">
+            Kamu yakin ingin menghapus mitra berikut?
+            <span class="danger-target" id="deleteTargetName">-</span>
+        </p>
+
+        <form method="POST" id="deleteForm">
+            {% csrf_token %}
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" data-close-modal="deleteModal">Batal</button>
+                <button type="submit" class="btn btn-danger">Ya, Hapus</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const updateUrlTemplate = "{% url 'mitra_update' '__EMAIL__' %}";
+    const deleteUrlTemplate = "{% url 'mitra_delete' '__EMAIL__' %}";
+
+    function openModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) {
+            modal.classList.add('show');
+        }
+    }
+
+    function closeModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) {
+            modal.classList.remove('show');
+        }
+    }
+
+    function buildActionUrl(template, email) {
+        return template.replace('__EMAIL__', encodeURIComponent(email));
+    }
+
+    document.querySelectorAll('[data-open-modal]').forEach((button) => {
+        button.addEventListener('click', () => {
+            openModal(button.dataset.openModal);
+        });
+    });
+
+    document.querySelectorAll('[data-close-modal]').forEach((button) => {
+        button.addEventListener('click', () => {
+            closeModal(button.dataset.closeModal);
+        });
+    });
+
+    document.querySelectorAll('[data-open-edit]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const email = button.dataset.email;
+            const nama = button.dataset.nama;
+            const tanggal = button.dataset.tanggal;
+
+            document.getElementById('editEmail').value = email;
+            document.getElementById('editNama').value = nama;
+            document.getElementById('editTanggal').value = tanggal;
+            document.getElementById('editForm').action = buildActionUrl(updateUrlTemplate, email);
+
+            openModal('editModal');
+        });
+    });
+
+    document.querySelectorAll('[data-open-delete]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const email = button.dataset.email;
+            const nama = button.dataset.nama;
+
+            document.getElementById('deleteTargetName').textContent = `${nama} (${email})`;
+            document.getElementById('deleteForm').action = buildActionUrl(deleteUrlTemplate, email);
+
+            openModal('deleteModal');
+        });
+    });
+
+    document.querySelectorAll('.modal-backdrop').forEach((modal) => {
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                modal.classList.remove('show');
+            }
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            document.querySelectorAll('.modal-backdrop.show').forEach((modal) => {
+                modal.classList.remove('show');
+            });
+        }
+    });
+</script>
+{% endblock %}

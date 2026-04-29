@@ -808,3 +808,362 @@ def member_hapus(request, email):
         'nama':         nama,
         'nomor_member': nomor_member,
     })
+
+
+def get_hadiah_penyedia_options():
+    query = """
+        SELECT
+            mk.id_penyedia,
+            mk.nama_maskapai AS nama_penyedia,
+            'airline' AS tipe_penyedia
+        FROM maskapai mk
+
+        UNION ALL
+
+        SELECT
+            mt.id_penyedia,
+            mt.nama_mitra AS nama_penyedia,
+            'partner' AS tipe_penyedia
+        FROM mitra mt
+
+        ORDER BY tipe_penyedia, nama_penyedia
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(query)
+        rows = cursor.fetchall()
+
+    return [{
+        'id': row[0],
+        'nama': row[1],
+        'tipe': row[2],
+        'label': f"{row[1]} ({'Airline' if row[2] == 'airline' else 'Partner'})",
+    } for row in rows]
+
+
+def generate_kode_hadiah():
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT kode_hadiah
+            FROM hadiah
+            WHERE kode_hadiah LIKE 'RWD-%'
+            ORDER BY kode_hadiah DESC
+            LIMIT 1
+        """)
+        row = cursor.fetchone()
+
+    if row:
+        try:
+            nomor = int(row[0].split('-')[-1]) + 1
+        except (ValueError, IndexError):
+            nomor = 1
+    else:
+        nomor = 1
+
+    return f"RWD-{nomor:03d}"
+
+
+@login_required_staf
+def hadiah_list(request):
+    search = request.GET.get('search', '').strip()
+    provider_type = request.GET.get('provider_type', '').strip().lower()
+
+    query = """
+        SELECT
+            h.kode_hadiah,
+            h.nama,
+            h.deskripsi,
+            h.miles,
+            h.valid_start_date,
+            h.program_end,
+            h.id_penyedia,
+            COALESCE(mk.nama_maskapai, mt.nama_mitra, 'Penyedia #' || h.id_penyedia::text) AS nama_penyedia,
+            CASE
+                WHEN mk.id_penyedia IS NOT NULL THEN 'airline'
+                WHEN mt.id_penyedia IS NOT NULL THEN 'partner'
+                ELSE 'unknown'
+            END AS tipe_penyedia,
+            EXISTS (
+                SELECT 1
+                FROM redeem r
+                WHERE r.kode_hadiah = h.kode_hadiah
+            ) AS pernah_redeem
+        FROM hadiah h
+        LEFT JOIN maskapai mk ON h.id_penyedia = mk.id_penyedia
+        LEFT JOIN mitra mt ON h.id_penyedia = mt.id_penyedia
+        WHERE 1=1
+    """
+    params = []
+
+    if provider_type in ['airline', 'partner']:
+        if provider_type == 'airline':
+            query += " AND mk.id_penyedia IS NOT NULL"
+        else:
+            query += " AND mt.id_penyedia IS NOT NULL"
+    else:
+        provider_type = ''
+
+    if search:
+        query += """
+            AND (
+                h.nama ILIKE %s
+                OR COALESCE(mk.nama_maskapai, mt.nama_mitra, '') ILIKE %s
+            )
+        """
+        keyword = f"%{search}%"
+        params.extend([keyword, keyword])
+
+    query += " ORDER BY h.nama ASC, h.valid_start_date DESC, h.kode_hadiah ASC"
+
+    with connection.cursor() as cursor:
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+
+    today = timezone.localdate()
+    hadiah_list_data = []
+    for row in rows:
+        expired = row[5] < today if row[5] else False
+        hadiah_list_data.append({
+            'kode_hadiah': row[0],
+            'nama': row[1],
+            'deskripsi': row[2],
+            'miles': row[3],
+            'valid_start_date': row[4],
+            'program_end': row[5],
+            'id_penyedia': row[6],
+            'nama_penyedia': row[7],
+            'tipe_penyedia': row[8],
+            'pernah_redeem': row[9],
+            'can_delete': expired and not row[9],
+        })
+
+    return render(request, 'staf/hadiah_list.html', {
+        'hadiah_list': hadiah_list_data,
+        'penyedia_options': get_hadiah_penyedia_options(),
+        'search': search,
+        'provider_type': provider_type,
+        'generated_kode_hadiah': generate_kode_hadiah(),
+        'today': today,
+    })
+
+
+@login_required_staf
+def hadiah_create(request):
+    if request.method != 'POST':
+        return redirect('hadiah_list')
+
+    nama = request.POST.get('nama', '').strip()
+    id_penyedia = request.POST.get('id_penyedia', '').strip()
+    miles = request.POST.get('miles', '').strip()
+    deskripsi = request.POST.get('deskripsi', '').strip()
+    valid_start_date = request.POST.get('valid_start_date', '').strip()
+    program_end = request.POST.get('program_end', '').strip()
+
+    if not all([nama, id_penyedia, miles, valid_start_date, program_end]):
+        messages.error(request, 'Semua field wajib hadiah harus diisi.')
+        return redirect('hadiah_list')
+
+    if program_end < valid_start_date:
+        messages.error(request, 'Tanggal akhir program tidak boleh sebelum tanggal mulai.')
+        return redirect('hadiah_list')
+
+    try:
+        with transaction.atomic():
+            kode_hadiah = generate_kode_hadiah()
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO hadiah
+                    (kode_hadiah, nama, miles, deskripsi, valid_start_date, program_end, id_penyedia)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, [kode_hadiah, nama, miles, deskripsi or None, valid_start_date, program_end, id_penyedia])
+
+        messages.success(request, f'Hadiah {kode_hadiah} berhasil ditambahkan.')
+    except Exception as e:
+        messages.error(request, f'Gagal menambahkan hadiah: {e}')
+
+    return redirect('hadiah_list')
+
+
+@login_required_staf
+def hadiah_update(request, kode_hadiah):
+    if request.method != 'POST':
+        return redirect('hadiah_list')
+
+    nama = request.POST.get('nama', '').strip()
+    id_penyedia = request.POST.get('id_penyedia', '').strip()
+    miles = request.POST.get('miles', '').strip()
+    deskripsi = request.POST.get('deskripsi', '').strip()
+    valid_start_date = request.POST.get('valid_start_date', '').strip()
+    program_end = request.POST.get('program_end', '').strip()
+
+    if not all([nama, id_penyedia, miles, valid_start_date, program_end]):
+        messages.error(request, 'Semua field wajib hadiah harus diisi.')
+        return redirect('hadiah_list')
+
+    if program_end < valid_start_date:
+        messages.error(request, 'Tanggal akhir program tidak boleh sebelum tanggal mulai.')
+        return redirect('hadiah_list')
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                UPDATE hadiah
+                SET nama = %s,
+                    miles = %s,
+                    deskripsi = %s,
+                    valid_start_date = %s,
+                    program_end = %s,
+                    id_penyedia = %s
+                WHERE kode_hadiah = %s
+            """, [nama, miles, deskripsi or None, valid_start_date, program_end, id_penyedia, kode_hadiah])
+
+            if cursor.rowcount == 0:
+                messages.error(request, 'Hadiah tidak ditemukan.')
+            else:
+                messages.success(request, f'Hadiah {kode_hadiah} berhasil diperbarui.')
+    except Exception as e:
+        messages.error(request, f'Gagal memperbarui hadiah: {e}')
+
+    return redirect('hadiah_list')
+
+
+@login_required_staf
+def hadiah_delete(request, kode_hadiah):
+    if request.method != 'POST':
+        return redirect('hadiah_list')
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    program_end,
+                    EXISTS (SELECT 1 FROM redeem WHERE kode_hadiah = %s) AS pernah_redeem
+                FROM hadiah
+                WHERE kode_hadiah = %s
+            """, [kode_hadiah, kode_hadiah])
+            row = cursor.fetchone()
+
+            if not row:
+                messages.error(request, 'Hadiah tidak ditemukan.')
+                return redirect('hadiah_list')
+
+            if row[0] >= timezone.localdate():
+                messages.error(request, 'Hadiah hanya bisa dihapus jika periode program sudah selesai.')
+                return redirect('hadiah_list')
+
+            if row[1]:
+                messages.error(request, 'Hadiah yang pernah diredeem tidak dapat dihapus agar riwayat tetap aman.')
+                return redirect('hadiah_list')
+
+            cursor.execute("DELETE FROM hadiah WHERE kode_hadiah = %s", [kode_hadiah])
+            messages.success(request, f'Hadiah {kode_hadiah} berhasil dihapus.')
+    except Exception as e:
+        messages.error(request, f'Gagal menghapus hadiah: {e}')
+
+    return redirect('hadiah_list')
+
+# READ
+def mitra_list(request):
+    search = request.GET.get('search', '').strip()
+    sort = request.GET.get('sort', 'nama_asc')
+
+    order_by_map = {
+        'nama_asc': 'nama_mitra ASC',
+        'nama_desc': 'nama_mitra DESC',
+        'tanggal_asc': 'tanggal_kerja_sama ASC',
+        'tanggal_desc': 'tanggal_kerja_sama DESC',
+    }
+    order_by = order_by_map.get(sort, order_by_map['nama_asc'])
+
+    with connection.cursor() as cursor:
+        query = f"""
+            SELECT email_mitra, nama_mitra, tanggal_kerja_sama
+            FROM mitra
+        """
+        params = []
+
+        if search:
+            query += " WHERE nama_mitra ILIKE %s"
+            params.append(f"%{search}%")
+
+        query += f" ORDER BY {order_by}"
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+
+    mitras = []
+    for row in rows:
+        mitras.append({
+            'email': row[0],
+            'nama': row[1],
+            'tanggal': row[2],
+        })
+
+    return render(request, 'staf/mitra_list.html', {
+        'mitras': mitras,
+        'search': search,
+        'sort': sort,
+    })
+
+
+# CREATE (WAJIB INSERT PENYEDIA DULU)
+def mitra_create(request):
+    if request.method == 'POST':
+        email = request.POST['email']
+        nama = request.POST['nama']
+        tanggal = request.POST['tanggal']
+
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                # Sinkronkan sequence SERIAL dengan data existing setelah import dump.
+                cursor.execute("""
+                    SELECT setval(
+                        pg_get_serial_sequence('penyedia', 'id'),
+                        COALESCE((SELECT MAX(id) FROM penyedia), 1),
+                        (SELECT COUNT(*) > 0 FROM penyedia)
+                    )
+                """)
+
+                cursor.execute("""
+                    INSERT INTO penyedia DEFAULT VALUES RETURNING id
+                """)
+                id_penyedia = cursor.fetchone()[0]
+
+                cursor.execute("""
+                    INSERT INTO mitra
+                    (email_mitra, id_penyedia, nama_mitra, tanggal_kerja_sama)
+                    VALUES (%s, %s, %s, %s)
+                """, [email, id_penyedia, nama, tanggal])
+
+    return redirect('mitra_list')
+
+
+# UPDATE
+def mitra_update(request, email):
+    if request.method == 'POST':
+        nama = request.POST['nama']
+        tanggal = request.POST['tanggal']
+
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                UPDATE mitra
+                SET nama_mitra=%s, tanggal_kerja_sama=%s
+                WHERE email_mitra=%s
+            """, [nama, tanggal, email])
+
+    return redirect('mitra_list')
+
+
+# DELETE (LEWAT PENYEDIA)
+def mitra_delete(request, email):
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            DELETE FROM penyedia
+            WHERE id = (
+                SELECT id_penyedia
+                FROM mitra
+                WHERE email_mitra=%s
+            )
+        """, [email])
+
+    return redirect('mitra_list')
