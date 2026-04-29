@@ -1,0 +1,795 @@
+{% extends 'base.html' %}
+{% block title %}Kelola Hadiah - AeroMiles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.75rem;
+    }
+
+    .page-title {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: var(--white);
+    }
+
+    .page-title span { color: var(--accent); }
+
+    .subtitle {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-top: 0.3rem;
+    }
+
+    .summary-card,
+    .filter-bar,
+    .table-card,
+    .modal-card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 12px 28px rgba(7, 14, 36, 0.08);
+    }
+
+    .summary-card {
+        border-radius: 16px;
+        padding: 1rem 1.1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .summary-label {
+        color: var(--muted);
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.35rem;
+    }
+
+    .summary-value {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.55rem;
+        font-weight: 700;
+        color: var(--white);
+    }
+
+    .summary-note {
+        color: var(--muted);
+        font-size: 0.84rem;
+        max-width: 620px;
+    }
+
+    .filter-bar {
+        border-radius: 16px;
+        padding: 1rem 1.1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        gap: 0.85rem;
+        flex-wrap: wrap;
+        align-items: flex-end;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.38rem;
+        min-width: 180px;
+        flex: 1;
+    }
+
+    .filter-group.filter-type {
+        flex: 0 1 240px;
+    }
+
+    .filter-group label {
+        color: var(--muted);
+        font-size: 0.74rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 600;
+    }
+
+    .filter-group input,
+    .filter-group select,
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 0.72rem 0.9rem;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px;
+        color: var(--white);
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.88rem;
+        outline: none;
+        transition: all 0.2s;
+    }
+
+    .filter-group input::placeholder,
+    .form-group textarea::placeholder {
+        color: var(--muted);
+    }
+
+    .filter-group select option,
+    .form-group select option {
+        background: #111936;
+    }
+
+    .filter-group input:focus,
+    .filter-group select:focus,
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        border-color: rgba(47,123,234,0.45);
+        box-shadow: 0 0 0 3px rgba(47,123,234,0.12);
+        background: rgba(47,123,234,0.08);
+    }
+
+    .filter-actions,
+    .actions,
+    .modal-actions {
+        display: flex;
+        gap: 0.65rem;
+        flex-wrap: wrap;
+    }
+
+    .result-meta {
+        color: var(--muted);
+        font-size: 0.84rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .result-meta strong { color: var(--white); }
+
+    .table-card {
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.86rem;
+    }
+
+    thead th {
+        text-align: left;
+        padding: 0.95rem 1rem;
+        color: var(--muted);
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        font-weight: 600;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+        background: rgba(255,255,255,0.03);
+        white-space: nowrap;
+    }
+
+    tbody td {
+        padding: 0.95rem 1rem;
+        color: var(--white);
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        vertical-align: top;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: rgba(255,255,255,0.025); }
+
+    .code-cell {
+        color: var(--accent-light);
+        font-family: 'Syne', sans-serif;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .provider-badge,
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.28rem 0.72rem;
+        border-radius: 999px;
+        font-size: 0.76rem;
+        font-weight: 600;
+        white-space: nowrap;
+        border: 1px solid transparent;
+    }
+
+    .provider-airline {
+        background: rgba(47,123,234,0.12);
+        border-color: rgba(47,123,234,0.22);
+        color: #82b4f5;
+    }
+
+    .provider-partner {
+        background: rgba(245,166,35,0.12);
+        border-color: rgba(245,166,35,0.24);
+        color: var(--accent-light);
+    }
+
+    .status-active {
+        background: rgba(80,200,120,0.12);
+        border-color: rgba(80,200,120,0.24);
+        color: #7debb0;
+    }
+
+    .status-upcoming {
+        background: rgba(47,123,234,0.12);
+        border-color: rgba(47,123,234,0.22);
+        color: #82b4f5;
+    }
+
+    .status-expired {
+        background: rgba(255,107,107,0.12);
+        border-color: rgba(255,107,107,0.24);
+        color: #ff9999;
+    }
+
+    .reward-name {
+        font-weight: 700;
+        margin-bottom: 0.2rem;
+    }
+
+    .reward-desc,
+    .provider-name,
+    .period-copy,
+    .delete-note {
+        color: var(--muted);
+        font-size: 0.82rem;
+        line-height: 1.55;
+    }
+
+    .miles-value {
+        font-family: 'Syne', sans-serif;
+        font-weight: 700;
+        color: var(--white);
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        padding: 0.58rem 1.05rem;
+        border-radius: 10px;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.86rem;
+        font-weight: 600;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+
+    .btn-primary { background: var(--sky); color: var(--white); }
+    .btn-primary:hover { background: var(--blue); }
+    .btn-secondary {
+        background: rgba(255,255,255,0.06);
+        color: var(--muted);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    .btn-secondary:hover {
+        color: var(--white);
+        background: rgba(255,255,255,0.1);
+    }
+    .btn-warning {
+        background: rgba(245,166,35,0.14);
+        color: var(--accent-light);
+        border: 1px solid rgba(245,166,35,0.24);
+    }
+    .btn-warning:hover { background: rgba(245,166,35,0.22); }
+    .btn-danger {
+        background: rgba(255,107,107,0.12);
+        color: #ff9999;
+        border: 1px solid rgba(255,107,107,0.24);
+    }
+    .btn-danger:hover { background: rgba(255,107,107,0.18); }
+    .btn-disabled,
+    .btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+    .btn-sm {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3.5rem 2rem;
+        color: var(--muted);
+    }
+
+    .empty-icon {
+        font-size: 2.8rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1.25rem;
+        background: rgba(6, 10, 26, 0.68);
+        backdrop-filter: blur(4px);
+        z-index: 50;
+    }
+
+    .modal-backdrop.show { display: flex; }
+
+    .modal-card {
+        width: min(100%, 600px);
+        border-radius: 18px;
+        padding: 1.35rem;
+        animation: modalIn 0.2s ease;
+    }
+
+    .modal-card.modal-sm { width: min(100%, 430px); }
+
+    .modal-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .modal-title {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--white);
+    }
+
+    .modal-subtitle {
+        color: var(--muted);
+        font-size: 0.86rem;
+        margin-top: 0.2rem;
+        line-height: 1.5;
+    }
+
+    .modal-close {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.1);
+        background: rgba(255,255,255,0.04);
+        color: var(--muted);
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 1rem;
+    }
+
+    .modal-close:hover {
+        color: var(--white);
+        background: rgba(255,255,255,0.08);
+    }
+
+    .form-grid {
+        display: grid;
+        gap: 0.95rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.38rem;
+    }
+
+    .form-group.full-width { grid-column: 1 / -1; }
+
+    .form-group label {
+        color: var(--muted);
+        font-size: 0.74rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 600;
+    }
+
+    .form-group input:disabled {
+        color: var(--muted);
+        background: rgba(255,255,255,0.03);
+        cursor: not-allowed;
+    }
+
+    .form-group textarea {
+        min-height: 108px;
+        resize: vertical;
+    }
+
+    .modal-actions {
+        justify-content: flex-end;
+        margin-top: 1.25rem;
+    }
+
+    .delete-target {
+        display: inline-block;
+        margin-top: 0.45rem;
+        color: var(--white);
+        font-weight: 700;
+    }
+
+    .helper-text {
+        color: var(--muted);
+        font-size: 0.78rem;
+        margin-top: 0.35rem;
+    }
+
+    @keyframes modalIn {
+        from { opacity: 0; transform: translateY(10px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @media (max-width: 900px) {
+        .table-card { overflow-x: auto; }
+    }
+
+    @media (max-width: 768px) {
+        .page-header { align-items: stretch; }
+        .page-header .btn { width: 100%; }
+        .summary-card { align-items: flex-start; }
+        .modal-card,
+        .modal-card.modal-sm { width: 100%; }
+        .form-grid { grid-template-columns: 1fr; }
+        .modal-actions .btn { flex: 1; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Kelola <span>Hadiah</span></h1>
+        <p class="subtitle">Atur katalog hadiah AeroMiles beserta penyedia airline maupun partner.</p>
+    </div>
+    <button type="button" class="btn btn-primary" data-open-modal="createModal">+ Tambah Hadiah</button>
+</div>
+
+<div class="summary-card">
+    <div>
+        <div class="summary-label">Total Hadiah</div>
+        <div class="summary-value">{{ hadiah_list|length }}</div>
+    </div>
+    <p class="summary-note">Staf dapat mengelola hadiah aktif, hadiah yang akan datang, serta hadiah yang sudah berakhir dari seluruh penyedia AeroMiles.</p>
+</div>
+
+<form method="GET" class="filter-bar">
+    <div class="filter-group">
+        <label for="search">Cari Hadiah atau Penyedia</label>
+        <input id="search" type="text" name="search" value="{{ search }}" placeholder="Nama hadiah atau nama penyedia...">
+    </div>
+    <div class="filter-group filter-type">
+        <label for="provider_type">Tipe Penyedia</label>
+        <select id="provider_type" name="provider_type">
+            <option value="">Semua Penyedia</option>
+            <option value="airline" {% if provider_type == 'airline' %}selected{% endif %}>Airline</option>
+            <option value="partner" {% if provider_type == 'partner' %}selected{% endif %}>Partner</option>
+        </select>
+    </div>
+    <div class="filter-actions">
+        <button type="submit" class="btn btn-primary">Terapkan</button>
+        <a href="{% url 'hadiah_list' %}" class="btn btn-secondary">Reset</a>
+    </div>
+</form>
+
+<p class="result-meta">Menampilkan <strong>{{ hadiah_list|length }}</strong> hadiah{% if search %} untuk pencarian "<strong>{{ search }}</strong>"{% endif %}.</p>
+
+<div class="table-card">
+    {% if hadiah_list %}
+    <table>
+        <thead>
+            <tr>
+                <th>Kode</th>
+                <th>Hadiah</th>
+                <th>Penyedia</th>
+                <th>Miles</th>
+                <th>Periode</th>
+                <th>Status</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for hadiah in hadiah_list %}
+            <tr>
+                <td class="code-cell">{{ hadiah.kode_hadiah }}</td>
+                <td>
+                    <div class="reward-name">{{ hadiah.nama }}</div>
+                    <div class="reward-desc">{{ hadiah.deskripsi|default:"Tidak ada deskripsi tambahan." }}</div>
+                </td>
+                <td>
+                    <span class="provider-badge {% if hadiah.tipe_penyedia == 'airline' %}provider-airline{% else %}provider-partner{% endif %}">
+                        {{ hadiah.tipe_penyedia|title }}
+                    </span>
+                    <div class="provider-name" style="margin-top: 0.35rem;">{{ hadiah.nama_penyedia }}</div>
+                </td>
+                <td><span class="miles-value">{{ hadiah.miles }}</span></td>
+                <td>
+                    <div>{{ hadiah.valid_start_date|date:"d M Y" }}</div>
+                    <div class="period-copy">sampai {{ hadiah.program_end|date:"d M Y" }}</div>
+                </td>
+                <td>
+                    {% if hadiah.valid_start_date > today %}
+                        <span class="status-badge status-upcoming">Akan Datang</span>
+                    {% elif hadiah.program_end < today %}
+                        <span class="status-badge status-expired">Berakhir</span>
+                    {% else %}
+                        <span class="status-badge status-active">Aktif</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="actions">
+                        <button
+                            type="button"
+                            class="btn btn-warning btn-sm"
+                            data-open-edit
+                            data-kode="{{ hadiah.kode_hadiah }}"
+                            data-nama="{{ hadiah.nama }}"
+                            data-deskripsi="{{ hadiah.deskripsi|default:'' }}"
+                            data-miles="{{ hadiah.miles }}"
+                            data-valid-start="{{ hadiah.valid_start_date|date:'Y-m-d' }}"
+                            data-program-end="{{ hadiah.program_end|date:'Y-m-d' }}"
+                            data-penyedia="{{ hadiah.id_penyedia }}"
+                        >
+                            Edit
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-danger btn-sm {% if not hadiah.can_delete %}btn-disabled{% endif %}"
+                            data-open-delete
+                            data-kode="{{ hadiah.kode_hadiah }}"
+                            data-nama="{{ hadiah.nama }}"
+                            data-can-delete="{% if hadiah.can_delete %}true{% else %}false{% endif %}"
+                            data-delete-reason="{% if hadiah.pernah_redeem %}Hadiah ini sudah pernah diredeem oleh member.{% else %}Hadiah hanya bisa dihapus setelah periode program selesai.{% endif %}"
+                            {% if not hadiah.can_delete %}disabled{% endif %}
+                        >
+                            Hapus
+                        </button>
+                    </div>
+                    {% if not hadiah.can_delete %}
+                    <div class="delete-note" style="margin-top: 0.45rem;">
+                        {% if hadiah.pernah_redeem %}
+                            Tidak bisa dihapus karena sudah pernah diredeem.
+                        {% else %}
+                            Bisa dihapus setelah program berakhir.
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">🎁</div>
+        <p>{% if search or provider_type %}Tidak ada hadiah yang cocok dengan filter saat ini.{% else %}Belum ada hadiah yang tersimpan.{% endif %}</p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="modal-backdrop" id="createModal">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="createModalTitle">
+        <div class="modal-header">
+            <div>
+                <h2 class="modal-title" id="createModalTitle">Tambah Hadiah</h2>
+                <p class="modal-subtitle">Buat hadiah baru dan hubungkan ke penyedia airline atau partner.</p>
+            </div>
+            <button type="button" class="modal-close" data-close-modal="createModal" aria-label="Tutup modal">✕</button>
+        </div>
+
+        <form method="POST" action="{% url 'hadiah_create' %}">
+            {% csrf_token %}
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="create-kode">Kode Hadiah</label>
+                    <input id="create-kode" type="text" value="{{ generated_kode_hadiah }}" disabled>
+                    <div class="helper-text">Kode otomatis mengikuti format `RWD-XXX`.</div>
+                </div>
+                <div class="form-group">
+                    <label for="create-miles">Miles Dibutuhkan</label>
+                    <input id="create-miles" name="miles" type="number" min="1" required>
+                </div>
+                <div class="form-group full-width">
+                    <label for="create-nama">Nama Hadiah</label>
+                    <input id="create-nama" name="nama" type="text" placeholder="Masukkan nama hadiah" required>
+                </div>
+                <div class="form-group full-width">
+                    <label for="create-penyedia">Penyedia</label>
+                    <select id="create-penyedia" name="id_penyedia" required>
+                        <option value="">Pilih penyedia</option>
+                        {% for penyedia in penyedia_options %}
+                        <option value="{{ penyedia.id }}">{{ penyedia.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="create-valid-start">Valid Start</label>
+                    <input id="create-valid-start" name="valid_start_date" type="date" required>
+                </div>
+                <div class="form-group">
+                    <label for="create-program-end">Program End</label>
+                    <input id="create-program-end" name="program_end" type="date" required>
+                </div>
+                <div class="form-group full-width">
+                    <label for="create-deskripsi">Deskripsi</label>
+                    <textarea id="create-deskripsi" name="deskripsi" placeholder="Tambahkan deskripsi hadiah..."></textarea>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" data-close-modal="createModal">Batal</button>
+                <button type="submit" class="btn btn-primary">Simpan Hadiah</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="editModal">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+        <div class="modal-header">
+            <div>
+                <h2 class="modal-title" id="editModalTitle">Edit Hadiah</h2>
+                <p class="modal-subtitle">Perbarui detail hadiah tanpa mengubah kode hadiah.</p>
+            </div>
+            <button type="button" class="modal-close" data-close-modal="editModal" aria-label="Tutup modal">✕</button>
+        </div>
+
+        <form method="POST" id="editForm">
+            {% csrf_token %}
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="edit-kode">Kode Hadiah</label>
+                    <input id="edit-kode" type="text" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="edit-miles">Miles Dibutuhkan</label>
+                    <input id="edit-miles" name="miles" type="number" min="1" required>
+                </div>
+                <div class="form-group full-width">
+                    <label for="edit-nama">Nama Hadiah</label>
+                    <input id="edit-nama" name="nama" type="text" required>
+                </div>
+                <div class="form-group full-width">
+                    <label for="edit-penyedia">Penyedia</label>
+                    <select id="edit-penyedia" name="id_penyedia" required>
+                        <option value="">Pilih penyedia</option>
+                        {% for penyedia in penyedia_options %}
+                        <option value="{{ penyedia.id }}">{{ penyedia.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-valid-start">Valid Start</label>
+                    <input id="edit-valid-start" name="valid_start_date" type="date" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-program-end">Program End</label>
+                    <input id="edit-program-end" name="program_end" type="date" required>
+                </div>
+                <div class="form-group full-width">
+                    <label for="edit-deskripsi">Deskripsi</label>
+                    <textarea id="edit-deskripsi" name="deskripsi" placeholder="Tambahkan deskripsi hadiah..."></textarea>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" data-close-modal="editModal">Batal</button>
+                <button type="submit" class="btn btn-warning">Simpan Perubahan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="deleteModal">
+    <div class="modal-card modal-sm" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+        <div class="modal-header">
+            <div>
+                <h2 class="modal-title" id="deleteModalTitle">Hapus Hadiah</h2>
+                <p class="modal-subtitle">Penghapusan hanya berlaku untuk hadiah yang sudah berakhir dan belum pernah diredeem.</p>
+            </div>
+            <button type="button" class="modal-close" data-close-modal="deleteModal" aria-label="Tutup modal">✕</button>
+        </div>
+
+        <p class="delete-note">
+            Kamu yakin ingin menghapus hadiah berikut?
+            <span class="delete-target" id="deleteTargetName">-</span>
+        </p>
+
+        <form method="POST" id="deleteForm">
+            {% csrf_token %}
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" data-close-modal="deleteModal">Batal</button>
+                <button type="submit" class="btn btn-danger">Ya, Hapus</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const updateUrlTemplate = "{% url 'hadiah_update' '__KODE__' %}";
+    const deleteUrlTemplate = "{% url 'hadiah_delete' '__KODE__' %}";
+
+    function openModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) {
+            modal.classList.add('show');
+        }
+    }
+
+    function closeModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) {
+            modal.classList.remove('show');
+        }
+    }
+
+    function buildActionUrl(template, kode) {
+        return template.replace('__KODE__', encodeURIComponent(kode));
+    }
+
+    document.querySelectorAll('[data-open-modal]').forEach((button) => {
+        button.addEventListener('click', () => openModal(button.dataset.openModal));
+    });
+
+    document.querySelectorAll('[data-close-modal]').forEach((button) => {
+        button.addEventListener('click', () => closeModal(button.dataset.closeModal));
+    });
+
+    document.querySelectorAll('[data-open-edit]').forEach((button) => {
+        button.addEventListener('click', () => {
+            document.getElementById('edit-kode').value = button.dataset.kode;
+            document.getElementById('edit-nama').value = button.dataset.nama;
+            document.getElementById('edit-deskripsi').value = button.dataset.deskripsi;
+            document.getElementById('edit-miles').value = button.dataset.miles;
+            document.getElementById('edit-valid-start').value = button.dataset.validStart;
+            document.getElementById('edit-program-end').value = button.dataset.programEnd;
+            document.getElementById('edit-penyedia').value = button.dataset.penyedia;
+            document.getElementById('editForm').action = buildActionUrl(updateUrlTemplate, button.dataset.kode);
+            openModal('editModal');
+        });
+    });
+
+    document.querySelectorAll('[data-open-delete]').forEach((button) => {
+        button.addEventListener('click', () => {
+            if (button.dataset.canDelete !== 'true') {
+                return;
+            }
+
+            document.getElementById('deleteTargetName').textContent = `${button.dataset.nama} (${button.dataset.kode})`;
+            document.getElementById('deleteForm').action = buildActionUrl(deleteUrlTemplate, button.dataset.kode);
+            openModal('deleteModal');
+        });
+    });
+
+    document.querySelectorAll('.modal-backdrop').forEach((modal) => {
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                modal.classList.remove('show');
+            }
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            document.querySelectorAll('.modal-backdrop.show').forEach((modal) => {
+                modal.classList.remove('show');
+            });
+        }
+    });
+</script>
+{% endblock %}

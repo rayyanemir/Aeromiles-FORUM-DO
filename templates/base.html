@@ -259,35 +259,35 @@ body::after {
 </head>
 <body>
     <nav>
-        <a href="/" class="nav-brand">Aero<span>Miles</span></a>
+        <a href="{% url 'home' %}" class="nav-brand">Aero<span>Miles</span></a>
         <ul class="nav-links">
             {% if request.session.role == 'member' %}
-                <li><a href="/dashboard/">Dashboard</a></li>
-                <li><a href="/identitas/">Identitas Saya</a></li>
-                <li><a href="/klaim/">Klaim Miles</a></li>
-                <li><a href="/transfer/">Transfer Miles</a></li>
-                <li><a href="/redeem/">Redeem Hadiah</a></li>
-                <li><a href="/package/">Beli Package</a></li>
-                <li><a href="/tier/">Info Tier</a></li>
+                <li><a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Dashboard</a></li>
+                <li><a href="{% url 'identitas_list' %}" class="{% if request.resolver_match.url_name == 'identitas_list' or request.resolver_match.url_name == 'identitas_tambah' or request.resolver_match.url_name == 'identitas_edit' or request.resolver_match.url_name == 'identitas_hapus' %}active{% endif %}">Identitas Saya</a></li>
+                <li><a href="{% url 'klaim_list' %}" class="{% if request.resolver_match.url_name == 'klaim_list' or request.resolver_match.url_name == 'klaim_buat' or request.resolver_match.url_name == 'klaim_edit' or request.resolver_match.url_name == 'klaim_hapus' %}active{% endif %}">Klaim Miles</a></li>
+                <li><a href="{% url 'transfer_list' %}" class="{% if request.resolver_match.url_name == 'transfer_list' or request.resolver_match.url_name == 'transfer_buat' %}active{% endif %}">Transfer Miles</a></li>
+                <li><a href="{% url 'redeem_list' %}" class="{% if request.resolver_match.url_name == 'redeem_list' or request.resolver_match.url_name == 'redeem_buat' %}active{% endif %}">Redeem Hadiah</a></li>
+                <li><a href="{% url 'package_list' %}" class="{% if request.resolver_match.url_name == 'package_list' or request.resolver_match.url_name == 'package_beli' %}active{% endif %}">Beli Package</a></li>
+                <li><a href="{% url 'tier_info' %}" class="{% if request.resolver_match.url_name == 'tier_info' %}active{% endif %}">Info Tier</a></li>
                 <li>
-                    <a href="/pengaturan_profil/" class="profile-link" title="Pengaturan Profil" aria-label="Pengaturan Profil">
+                    <a href="{% url 'pengaturan_profil' %}" class="profile-link {% if request.resolver_match.url_name == 'pengaturan_profil' %}active{% endif %}" title="Pengaturan Profil" aria-label="Pengaturan Profil">
                         <span class="nav-avatar" id="nav-profile-avatar">{{ nav_user.initial }}</span>
                     </a>
                 </li>
-                <li><a href="/logout/" class="btn-logout">Logout</a></li>
+                <li><a href="{% url 'logout' %}" class="btn-logout">Logout</a></li>
             {% elif request.session.role == 'staf' %}
-                <li><a href="/dashboard/">Dashboard</a></li>
-                <li><a href="/kelola-member/">Kelola Member</a></li>
-                <li><a href="/kelola-klaim/">Kelola Klaim</a></li>
-                <li><a href="/kelola-hadiah/">Kelola Hadiah & Penyedia</a></li>
-                <li><a href="/kelola-mitra/">Kelola Mitra</a></li>
-                <li><a href="/laporan/">Laporan Transaksi</a></li>
+                <li><a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Dashboard</a></li>
+                <li><a href="{% url 'member_list_staf' %}" class="{% if request.resolver_match.url_name == 'member_list_staf' or request.resolver_match.url_name == 'member_tambah' or request.resolver_match.url_name == 'member_edit' or request.resolver_match.url_name == 'member_hapus' %}active{% endif %}">Kelola Member</a></li>
+                <li><a href="{% url 'kelola_klaim' %}" class="{% if request.resolver_match.url_name == 'kelola_klaim' or request.resolver_match.url_name == 'klaim_proses' %}active{% endif %}">Kelola Klaim</a></li>
+                <li><a href="{% url 'hadiah_list' %}" class="{% if request.resolver_match.url_name == 'hadiah_list' or request.resolver_match.url_name == 'hadiah_create' or request.resolver_match.url_name == 'hadiah_update' or request.resolver_match.url_name == 'hadiah_delete' %}active{% endif %}">Kelola Hadiah & Penyedia</a></li>
+                <li><a href="{% url 'mitra_list' %}" class="{% if request.resolver_match.url_name == 'mitra_list' or request.resolver_match.url_name == 'mitra_create' or request.resolver_match.url_name == 'mitra_update' or request.resolver_match.url_name == 'mitra_delete' %}active{% endif %}">Kelola Mitra</a></li>
+                <li><a href="{% url 'laporan_transaksi' %}" class="{% if request.resolver_match.url_name == 'laporan_transaksi' or request.resolver_match.url_name == 'laporan_transaksi_hapus' %}active{% endif %}">Laporan Transaksi</a></li>
                 <li>
-                    <a href="/pengaturan_profil/" class="profile-link" title="Pengaturan Profil" aria-label="Pengaturan Profil">
+                    <a href="{% url 'pengaturan_profil' %}" class="profile-link {% if request.resolver_match.url_name == 'pengaturan_profil' %}active{% endif %}" title="Pengaturan Profil" aria-label="Pengaturan Profil">
                         <span class="nav-avatar" id="nav-profile-avatar">{{ nav_user.initial }}</span>
                     </a>
                 </li>
-                <li><a href="/logout/" class="btn-logout">Logout</a></li>
+                <li><a href="{% url 'logout' %}" class="btn-logout">Logout</a></li>
             {% else %}
             {% endif %}
         </ul>
