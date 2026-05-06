@@ -42,8 +42,8 @@ pip install -r requirements.txt
 ### 3. Konfigurasi Environment (`.env`)
 Buat file `.env` di folder root (sejajar dengan `manage.py`) dan isi dengan kredensial database Anda:
 ```text
-DATABASE_URL=
-SECRET_KEY=
+DATABASE_URL=postgresql://postgres.pzbswobsjvdoolnokdpu:hidupFORUMDO!@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres
+SECRET_KEY='d^n39qn2(gs41ditg*qxpa6ru6n8j4dpmq%hl8hl(-u=830g65'
 DEBUG=True
 ```
 url dan key akan diberikan di file pengumpulan
