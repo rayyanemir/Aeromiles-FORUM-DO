@@ -2,8 +2,6 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.db import connection, transaction
 from django.utils import timezone
-from member.tier_logic import sync_member_tier
-# new
 import hashlib
 
 
@@ -16,18 +14,50 @@ def login_required_staf(view_func):
         return view_func(request, *args, **kwargs)
     return wrapper
 
+
+def hash_password(raw):
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def get_tier_list():
+    with connection.cursor() as c:
+        c.execute("SELECT id_tier, nama FROM tier ORDER BY minimal_tier_miles ASC")
+        return [{'id_tier': r[0], 'nama': r[1]} for r in c.fetchall()]
+
+
+def get_lowest_tier_id():
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT id_tier FROM tier
+            ORDER BY minimal_tier_miles ASC, minimal_frekuensi_terbang ASC
+            LIMIT 1
+        """)
+        row = c.fetchone()
+    return row[0] if row else None
+
+
+def generate_nomor_member():
+    with connection.cursor() as c:
+        c.execute("SELECT nomor_member FROM member ORDER BY nomor_member DESC LIMIT 1")
+        row = c.fetchone()
+    if row:
+        last_num = int(row[0][1:])
+        return f"M{last_num + 1:04d}"
+    return "M0001"
+
+
 def get_laporan_filters(request):
     return {
-        'tab': request.GET.get('tab', 'riwayat'),
-        'tipe': request.GET.get('tipe', '').strip(),
-        'member': request.GET.get('member', '').strip(),
-        'tgl_dari': request.GET.get('tgl_dari', '').strip(),
+        'tab':       request.GET.get('tab', 'riwayat'),
+        'tipe':      request.GET.get('tipe', '').strip(),
+        'member':    request.GET.get('member', '').strip(),
+        'tgl_dari':  request.GET.get('tgl_dari', '').strip(),
         'tgl_sampai': request.GET.get('tgl_sampai', '').strip(),
     }
 
 
 def get_laporan_stats():
-    now = timezone.now()
+    now         = timezone.now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     with connection.cursor() as c:
@@ -45,23 +75,16 @@ def get_laporan_stats():
 
     with connection.cursor() as c:
         c.execute("""
-            SELECT COALESCE(SUM(
-                CASE cm.kelas_kabin
-                    WHEN 'Economy' THEN 500
-                    WHEN 'Business' THEN 1000
-                    WHEN 'First' THEN 2000
-                    ELSE 500
-                END
-            ), 0)
-            FROM claim_missing_miles cm
-            WHERE cm.status_penerimaan = 'Disetujui'
+            SELECT COUNT(*) * 1000
+            FROM claim_missing_miles
+            WHERE status_penerimaan = 'Disetujui'
         """)
         total_klaim_disetujui = c.fetchone()[0] or 0
 
     return {
-        'total_miles_beredar': total_miles_beredar,
+        'total_miles_beredar':    total_miles_beredar,
         'total_redeem_bulan_ini': total_redeem_bulan_ini,
-        'total_klaim_disetujui': total_klaim_disetujui,
+        'total_klaim_disetujui':  total_klaim_disetujui,
     }
 
 
@@ -122,12 +145,7 @@ def get_laporan_transactions(filters):
                 'Klaim',
                 p.first_mid_name || ' ' || p.last_name,
                 cm.email_member,
-                CASE cm.kelas_kabin
-                    WHEN 'Economy' THEN 500
-                    WHEN 'Business' THEN 1000
-                    WHEN 'First' THEN 2000
-                    ELSE 500
-                END,
+                1000,
                 cm.timestamp,
                 FALSE,
                 'claim',
@@ -138,9 +156,7 @@ def get_laporan_transactions(filters):
             JOIN pengguna p ON cm.email_member = p.email
             WHERE cm.status_penerimaan = 'Disetujui'
         )
-        SELECT *
-        FROM transaksi
-        WHERE 1=1
+        SELECT * FROM transaksi WHERE 1=1
     """
     params = []
 
@@ -167,55 +183,46 @@ def get_laporan_transactions(filters):
         c.execute(query, params)
         rows = c.fetchall()
 
-    transactions = []
-    for row in rows:
-        transactions.append({
-            'tipe': row[0],
-            'member_nama': row[1],
-            'member_email': row[2],
-            'miles': row[3],
-            'waktu': row[4],
-            'bisa_hapus': row[5],
-            'delete_type': row[6],
-            'key_one': row[7],
-            'key_two': row[8],
-            'key_three': row[9],
-        })
-
-    return transactions
+    return [{
+        'tipe':        row[0],
+        'member_nama': row[1],
+        'member_email': row[2],
+        'miles':       row[3],
+        'waktu':       row[4],
+        'bisa_hapus':  row[5],
+        'delete_type': row[6],
+        'key_one':     row[7],
+        'key_two':     row[8],
+        'key_three':   row[9],
+    } for row in rows]
 
 
 def get_top_member_data():
     with connection.cursor() as c:
-        c.execute("""
-            SELECT
-                p.first_mid_name || ' ' || p.last_name AS member_nama,
-                m.email,
-                COALESCE(m.total_miles, 0) AS total_miles,
-                (
-                    COALESCE((SELECT COUNT(*) FROM transfer t WHERE t.email_member_1 = m.email), 0) +
-                    COALESCE((SELECT COUNT(*) FROM redeem r WHERE r.email_member = m.email), 0) +
-                    COALESCE((SELECT COUNT(*) FROM member_award_miles_package mp WHERE mp.email_member = m.email), 0) +
-                    COALESCE((SELECT COUNT(*) FROM claim_missing_miles cm WHERE cm.email_member = m.email AND cm.status_penerimaan = 'Disetujui'), 0)
-                ) AS jumlah_transaksi
-            FROM member m
-            JOIN pengguna p ON m.email = p.email
-            ORDER BY total_miles DESC, jumlah_transaksi DESC, member_nama ASC
-            LIMIT 5
-        """)
-        top_total_miles_rows = c.fetchall()
+        c.execute("SELECT * FROM get_top5_member()")
+        rows = c.fetchall()
+
+    top_total_miles = [{
+        'ranking':      r[0],
+        'member_email': r[1],
+        'member_nama':  r[2],
+        'nomor_member': r[3],
+        'tier_nama':    r[4],
+        'total_miles':  r[5],
+        'award_miles':  r[6],
+    } for r in rows]
 
     with connection.cursor() as c:
         c.execute("""
             SELECT
-                p.first_mid_name || ' ' || p.last_name AS member_nama,
-                t.email_member_1 AS member_email,
+                p.first_mid_name || ' ' || p.last_name,
+                t.email_member_1,
                 COUNT(*) AS jumlah_transfer,
-                COALESCE(SUM(t.jumlah), 0) AS total_miles_transfer
+                COALESCE(SUM(t.jumlah), 0)
             FROM transfer t
             JOIN pengguna p ON t.email_member_1 = p.email
-            GROUP BY member_nama, member_email
-            ORDER BY jumlah_transfer DESC, total_miles_transfer DESC, member_nama ASC
+            GROUP BY 1, 2
+            ORDER BY jumlah_transfer DESC
             LIMIT 5
         """)
         top_transfer_rows = c.fetchall()
@@ -223,112 +230,37 @@ def get_top_member_data():
     with connection.cursor() as c:
         c.execute("""
             SELECT
-                p.first_mid_name || ' ' || p.last_name AS member_nama,
-                r.email_member AS member_email,
+                p.first_mid_name || ' ' || p.last_name,
+                r.email_member,
                 COUNT(*) AS jumlah_redeem,
-                COALESCE(SUM(h.miles), 0) AS total_miles_redeem
+                COALESCE(SUM(h.miles), 0)
             FROM redeem r
             JOIN pengguna p ON r.email_member = p.email
             JOIN hadiah h ON r.kode_hadiah = h.kode_hadiah
-            GROUP BY member_nama, member_email
-            ORDER BY jumlah_redeem DESC, total_miles_redeem DESC, member_nama ASC
+            GROUP BY 1, 2
+            ORDER BY jumlah_redeem DESC
             LIMIT 5
         """)
         top_redeem_rows = c.fetchall()
 
     return {
-        'top_total_miles': [{
-            'ranking': index + 1,
-            'member_nama': row[0],
-            'member_email': row[1],
-            'total_miles': row[2],
-            'jumlah_transaksi': row[3],
-        } for index, row in enumerate(top_total_miles_rows)],
+        'top_total_miles': top_total_miles,
         'top_transfer': [{
-            'ranking': index + 1,
-            'member_nama': row[0],
-            'member_email': row[1],
-            'jumlah_transfer': row[2],
-            'total_miles_transfer': row[3],
-        } for index, row in enumerate(top_transfer_rows)],
+            'ranking':              i + 1,
+            'member_nama':          r[0],
+            'member_email':         r[1],
+            'jumlah_transfer':      r[2],
+            'total_miles_transfer': r[3],
+        } for i, r in enumerate(top_transfer_rows)],
         'top_redeem': [{
-            'ranking': index + 1,
-            'member_nama': row[0],
-            'member_email': row[1],
-            'jumlah_redeem': row[2],
-            'total_miles_redeem': row[3],
-        } for index, row in enumerate(top_redeem_rows)],
+            'ranking':           i + 1,
+            'member_nama':       r[0],
+            'member_email':      r[1],
+            'jumlah_redeem':     r[2],
+            'total_miles_redeem': r[3],
+        } for i, r in enumerate(top_redeem_rows)],
     }
 
-
-@login_required_staf
-def laporan_transaksi(request):
-    filters = get_laporan_filters(request)
-
-    if filters['tab'] not in ['riwayat', 'top-member']:
-        filters['tab'] = 'riwayat'
-
-    context = {
-        'filters': filters,
-        'stats': get_laporan_stats(),
-        'transactions': get_laporan_transactions(filters),
-        'top_members': get_top_member_data(),
-        'tipe_options': ['Transfer', 'Redeem', 'Package', 'Klaim'],
-        'current_url': request.get_full_path(),
-    }
-    return render(request, 'staf/laporan_transaksi.html', context)
-
-
-@login_required_staf
-def laporan_transaksi_hapus(request):
-    if request.method != 'POST':
-        return redirect('laporan_transaksi')
-
-    delete_type = request.POST.get('delete_type', '').strip()
-    key_one = request.POST.get('key_one', '').strip()
-    key_two = request.POST.get('key_two', '').strip()
-    key_three = request.POST.get('key_three', '').strip()
-    next_url = request.POST.get('next_url', '').strip() or '/laporan/'
-
-    if delete_type not in ['transfer', 'redeem', 'package']:
-        messages.error(request, 'Tipe transaksi tidak dapat dihapus.')
-        return redirect(next_url)
-
-    try:
-        with connection.cursor() as c:
-            if delete_type == 'transfer':
-                c.execute("""
-                    DELETE FROM transfer
-                    WHERE email_member_1 = %s
-                      AND email_member_2 = %s
-                      AND timestamp = %s::timestamp
-                """, [key_one, key_two, key_three])
-            elif delete_type == 'redeem':
-                c.execute("""
-                    DELETE FROM redeem
-                    WHERE email_member = %s
-                      AND kode_hadiah = %s
-                      AND timestamp = %s::timestamp
-                """, [key_one, key_two, key_three])
-            else:
-                c.execute("""
-                    DELETE FROM member_award_miles_package
-                    WHERE email_member = %s
-                      AND id_award_miles_package = %s
-                      AND timestamp = %s::timestamp
-                """, [key_one, key_two, key_three])
-
-            if c.rowcount == 0:
-                messages.error(request, 'Riwayat transaksi tidak ditemukan atau sudah terhapus.')
-            else:
-                messages.success(request, 'Riwayat transaksi berhasil dihapus permanen.')
-    except Exception as e:
-        messages.error(request, f'Gagal menghapus riwayat transaksi: {e}')
-
-    return redirect(next_url)
-
-
-# FITUR 9
 
 def get_klaim_list_staf(status_filter='', maskapai_filter='', tgl_dari='', tgl_sampai=''):
     query = """
@@ -396,6 +328,109 @@ def get_klaim_list_staf(status_filter='', maskapai_filter='', tgl_dari='', tgl_s
     } for r in rows]
 
 
+def get_hadiah_penyedia_options():
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT mk.id_penyedia, mk.nama_maskapai, 'airline' AS tipe_penyedia
+            FROM maskapai mk
+
+            UNION ALL
+
+            SELECT mt.id_penyedia, mt.nama_mitra, 'partner' AS tipe_penyedia
+            FROM mitra mt
+
+            ORDER BY tipe_penyedia, 2
+        """)
+        rows = cursor.fetchall()
+
+    return [{
+        'id':    row[0],
+        'nama':  row[1],
+        'tipe':  row[2],
+        'label': f"{row[1]} ({'Airline' if row[2] == 'airline' else 'Partner'})",
+    } for row in rows]
+
+
+def generate_kode_hadiah():
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT kode_hadiah FROM hadiah
+            WHERE kode_hadiah LIKE 'RWD-%'
+            ORDER BY kode_hadiah DESC
+            LIMIT 1
+        """)
+        row = cursor.fetchone()
+
+    if row:
+        try:
+            nomor = int(row[0].split('-')[-1]) + 1
+        except (ValueError, IndexError):
+            nomor = 1
+    else:
+        nomor = 1
+
+    return f"RWD-{nomor:03d}"
+
+
+@login_required_staf
+def laporan_transaksi(request):
+    filters = get_laporan_filters(request)
+    if filters['tab'] not in ['riwayat', 'top-member']:
+        filters['tab'] = 'riwayat'
+
+    return render(request, 'staf/laporan_transaksi.html', {
+        'filters':      filters,
+        'stats':        get_laporan_stats(),
+        'transactions': get_laporan_transactions(filters),
+        'top_members':  get_top_member_data(),
+        'tipe_options': ['Transfer', 'Redeem', 'Package', 'Klaim'],
+        'current_url':  request.get_full_path(),
+    })
+
+
+@login_required_staf
+def laporan_transaksi_hapus(request):
+    if request.method != 'POST':
+        return redirect('laporan_transaksi')
+
+    delete_type = request.POST.get('delete_type', '').strip()
+    key_one     = request.POST.get('key_one', '').strip()
+    key_two     = request.POST.get('key_two', '').strip()
+    key_three   = request.POST.get('key_three', '').strip()
+    next_url    = request.POST.get('next_url', '').strip() or '/laporan/'
+
+    if delete_type not in ['transfer', 'redeem', 'package']:
+        messages.error(request, 'Tipe transaksi tidak dapat dihapus.')
+        return redirect(next_url)
+
+    try:
+        with connection.cursor() as c:
+            if delete_type == 'transfer':
+                c.execute("""
+                    DELETE FROM transfer
+                    WHERE email_member_1 = %s AND email_member_2 = %s AND timestamp = %s::timestamp
+                """, [key_one, key_two, key_three])
+            elif delete_type == 'redeem':
+                c.execute("""
+                    DELETE FROM redeem
+                    WHERE email_member = %s AND kode_hadiah = %s AND timestamp = %s::timestamp
+                """, [key_one, key_two, key_three])
+            else:
+                c.execute("""
+                    DELETE FROM member_award_miles_package
+                    WHERE email_member = %s AND id_award_miles_package = %s AND timestamp = %s::timestamp
+                """, [key_one, key_two, key_three])
+
+            if c.rowcount == 0:
+                messages.error(request, 'Riwayat transaksi tidak ditemukan atau sudah terhapus.')
+            else:
+                messages.success(request, 'Riwayat transaksi berhasil dihapus permanen.')
+    except Exception as e:
+        messages.error(request, f'Gagal menghapus riwayat transaksi: {e}')
+
+    return redirect(next_url)
+
+
 @login_required_staf
 def klaim_list_staf(request):
     status_filter   = request.GET.get('status', '')
@@ -421,7 +456,6 @@ def klaim_list_staf(request):
 
     if is_ajax:
         return render(request, 'staf/klaim_table_partial_staf.html', context)
-
     return render(request, 'staf/klaim_list_staf.html', context)
 
 
@@ -475,112 +509,41 @@ def klaim_proses(request, id):
             return redirect('kelola_klaim')
 
         try:
-            tier_result = None
-            with transaction.atomic():
-                with connection.cursor() as c:
-                    # Update status klaim + catat email staf
-                    c.execute("""
-                        UPDATE claim_missing_miles
-                        SET status_penerimaan = %s, email_staf = %s
-                        WHERE id = %s AND status_penerimaan = 'Menunggu'
-                    """, [aksi, email_staf, id])
-
-                    # Kalau disetujui, tambah miles ke member
-                    if aksi == 'Disetujui':
-                        # Hitung miles berdasarkan kelas kabin (contoh sederhana)
-                        miles_map = {
-                            'Economy': 500,
-                            'Business': 1000,
-                            'First': 2000,
-                        }
-                        miles = miles_map.get(klaim['kelas_kabin'], 500)
-
-                        c.execute("""
-                            UPDATE member
-                            SET award_miles = COALESCE(award_miles, 0) + %s,
-                                total_miles = COALESCE(total_miles, 0) + %s
-                            WHERE email = %s
-                        """, [miles, miles, klaim['email_member']])
-                        tier_result = sync_member_tier(klaim['email_member'], cursor=c)
-
+            with connection.cursor() as c:
+                c.execute("""
+                    UPDATE claim_missing_miles
+                    SET status_penerimaan = %s, email_staf = %s
+                    WHERE id = %s AND status_penerimaan = 'Menunggu'
+                """, [aksi, email_staf, id])
             messages.success(request, f'Klaim #{id} berhasil {aksi.lower()}.')
-            if tier_result and tier_result['updated']:
-                messages.success(
-                    request,
-                    f"Member naik tier dari {tier_result['previous_tier']['nama']} ke {tier_result['current_tier']['nama']}.",
-                )
         except Exception as e:
-            messages.error(request, f'Gagal memproses klaim: {e}')
+            err_msg = str(e)
+            if 'ERROR:' in err_msg:
+                err_msg = err_msg.split('ERROR:')[-1].strip()
+            messages.error(request, err_msg)
 
         return redirect('kelola_klaim')
 
     return render(request, 'staf/klaim_proses.html', {'klaim': klaim})
 
-"""
-Tambahkan import & fungsi berikut ke dalam staf/views.py (di bawah import yang sudah ada)
-"""
-
-# ─────────────────────────────────────────────
-# FITUR 6  –  CRUD MANAJEMEN DATA MEMBER (STAF)
-# ─────────────────────────────────────────────
-
-import hashlib
-
-def hash_password(raw: str) -> str:
-    """SHA-256 sederhana – sesuaikan dengan skema hash project."""
-    return hashlib.sha256(raw.encode()).hexdigest()
-
-
-def get_tier_list():
-    with connection.cursor() as c:
-        c.execute("SELECT id_tier, nama FROM tier ORDER BY minimal_tier_miles ASC")
-        return [{'id_tier': r[0], 'nama': r[1]} for r in c.fetchall()]
-
-
-def get_lowest_tier_id():
-    with connection.cursor() as c:
-        c.execute("""
-            SELECT id_tier FROM tier
-            ORDER BY minimal_tier_miles ASC, minimal_frekuensi_terbang ASC
-            LIMIT 1
-        """)
-        row = c.fetchone()
-    return row[0] if row else None
-
-
-def generate_nomor_member():
-    with connection.cursor() as c:
-        c.execute("""
-            SELECT nomor_member FROM member
-            ORDER BY nomor_member DESC
-            LIMIT 1
-        """)
-        row = c.fetchone()
-    if row:
-        last_num = int(row[0][1:])
-        return f"M{last_num + 1:04d}"
-    return "M0001"
-
-
-# ── READ ──────────────────────────────────────
 
 @login_required_staf
 def member_list(request):
-    search    = request.GET.get('search', '').strip()
+    search      = request.GET.get('search', '').strip()
     tier_filter = request.GET.get('tier', '').strip()
 
     query = """
         SELECT m.nomor_member,
                p.salutation || ' ' || p.first_mid_name || ' ' || p.last_name AS nama,
                m.email,
-               t.nama  AS tier_nama,
+               t.nama AS tier_nama,
                m.id_tier,
                COALESCE(m.total_miles, 0),
                COALESCE(m.award_miles, 0),
                m.tanggal_bergabung
         FROM member m
         JOIN pengguna p ON m.email = p.email
-        JOIN tier t     ON m.id_tier = t.id_tier
+        JOIN tier t ON m.id_tier = t.id_tier
         WHERE 1=1
     """
     params = []
@@ -601,51 +564,43 @@ def member_list(request):
         rows = c.fetchall()
 
     members = [{
-        'nomor_member':     r[0],
-        'nama':             r[1],
-        'email':            r[2],
-        'tier_nama':        r[3],
-        'id_tier':          r[4],
-        'total_miles':      r[5],
-        'award_miles':      r[6],
+        'nomor_member':      r[0],
+        'nama':              r[1],
+        'email':             r[2],
+        'tier_nama':         r[3],
+        'id_tier':           r[4],
+        'total_miles':       r[5],
+        'award_miles':       r[6],
         'tanggal_bergabung': r[7],
     } for r in rows]
 
     return render(request, 'staf/member_list.html', {
-        'members':    members,
-        'tier_list':  get_tier_list(),
-        'search':     search,
+        'members':     members,
+        'tier_list':   get_tier_list(),
+        'search':      search,
         'tier_filter': tier_filter,
     })
 
 
-# ── CREATE ────────────────────────────────────
-
 @login_required_staf
 def member_tambah(request):
-    error = None
+    error     = None
     tier_list = get_tier_list()
 
     if request.method == 'POST':
-        d = request.POST
-        email       = d.get('email', '').strip().lower()
-        password    = d.get('password', '').strip()
-        salutation  = d.get('salutation', '').strip()
-        first_mid   = d.get('first_mid_name', '').strip()
-        last_name   = d.get('last_name', '').strip()
-        cc          = d.get('country_code', '').strip()
-        mobile      = d.get('mobile_number', '').strip()
-        tgl_lahir   = d.get('tanggal_lahir', '').strip()
-        kewargaan   = d.get('kewarganegaraan', '').strip()
+        d          = request.POST
+        email      = d.get('email', '').strip().lower()
+        password   = d.get('password', '').strip()
+        salutation = d.get('salutation', '').strip()
+        first_mid  = d.get('first_mid_name', '').strip()
+        last_name  = d.get('last_name', '').strip()
+        cc         = d.get('country_code', '').strip()
+        mobile     = d.get('mobile_number', '').strip()
+        tgl_lahir  = d.get('tanggal_lahir', '').strip()
+        kewargaan  = d.get('kewarganegaraan', '').strip()
 
         if not all([email, password, salutation, first_mid, last_name, cc, mobile, tgl_lahir, kewargaan]):
             error = 'Semua field wajib diisi.'
-        else:
-            # cek duplikat email
-            with connection.cursor() as c:
-                c.execute("SELECT 1 FROM pengguna WHERE email = %s", [email])
-                if c.fetchone():
-                    error = 'Email sudah terdaftar dalam sistem.'
 
         if not error:
             try:
@@ -672,7 +627,10 @@ def member_tambah(request):
                 messages.success(request, f'Member {nomor_member} berhasil ditambahkan.')
                 return redirect('member_list_staf')
             except Exception as e:
-                error = f'Gagal menambahkan member: {e}'
+                err_msg = str(e)
+                if 'ERROR:' in err_msg:
+                    err_msg = err_msg.split('ERROR:')[-1].strip()
+                error = err_msg
 
     return render(request, 'staf/member_form.html', {
         'mode':      'tambah',
@@ -680,8 +638,6 @@ def member_tambah(request):
         'tier_list': tier_list,
     })
 
-
-# ── UPDATE ────────────────────────────────────
 
 @login_required_staf
 def member_edit(request, email):
@@ -694,7 +650,7 @@ def member_edit(request, email):
                    p.country_code, p.mobile_number, p.tanggal_lahir,
                    p.kewarganegaraan,
                    m.nomor_member, m.tanggal_bergabung, m.id_tier,
-                   COALESCE(m.award_miles,0), COALESCE(m.total_miles,0)
+                   COALESCE(m.award_miles, 0), COALESCE(m.total_miles, 0)
             FROM pengguna p
             JOIN member m ON m.email = p.email
             WHERE p.email = %s
@@ -706,31 +662,31 @@ def member_edit(request, email):
         return redirect('member_list_staf')
 
     member = {
-        'email':            email,
-        'salutation':       row[0],
-        'first_mid_name':   row[1],
-        'last_name':        row[2],
-        'country_code':     row[3],
-        'mobile_number':    row[4],
-        'tanggal_lahir':    row[5].strftime('%Y-%m-%d') if row[5] else '',
-        'kewarganegaraan':  row[6],
-        'nomor_member':     row[7],
+        'email':             email,
+        'salutation':        row[0],
+        'first_mid_name':    row[1],
+        'last_name':         row[2],
+        'country_code':      row[3],
+        'mobile_number':     row[4],
+        'tanggal_lahir':     row[5].strftime('%Y-%m-%d') if row[5] else '',
+        'kewarganegaraan':   row[6],
+        'nomor_member':      row[7],
         'tanggal_bergabung': row[8],
-        'id_tier':          row[9],
-        'award_miles':      row[10],
-        'total_miles':      row[11],
+        'id_tier':           row[9],
+        'award_miles':       row[10],
+        'total_miles':       row[11],
     }
 
     if request.method == 'POST':
-        d = request.POST
-        salutation  = d.get('salutation', '').strip()
-        first_mid   = d.get('first_mid_name', '').strip()
-        last_name   = d.get('last_name', '').strip()
-        cc          = d.get('country_code', '').strip()
-        mobile      = d.get('mobile_number', '').strip()
-        tgl_lahir   = d.get('tanggal_lahir', '').strip()
-        kewargaan   = d.get('kewarganegaraan', '').strip()
-        id_tier     = d.get('id_tier', '').strip()
+        d          = request.POST
+        salutation = d.get('salutation', '').strip()
+        first_mid  = d.get('first_mid_name', '').strip()
+        last_name  = d.get('last_name', '').strip()
+        cc         = d.get('country_code', '').strip()
+        mobile     = d.get('mobile_number', '').strip()
+        tgl_lahir  = d.get('tanggal_lahir', '').strip()
+        kewargaan  = d.get('kewarganegaraan', '').strip()
+        id_tier    = d.get('id_tier', '').strip()
 
         if not all([salutation, first_mid, last_name, cc, mobile, tgl_lahir, kewargaan, id_tier]):
             error = 'Semua field wajib diisi.'
@@ -744,12 +700,9 @@ def member_edit(request, email):
                                 country_code=%s, mobile_number=%s,
                                 tanggal_lahir=%s, kewarganegaraan=%s
                             WHERE email=%s
-                        """, [salutation, first_mid, last_name, cc, mobile,
-                              tgl_lahir, kewargaan, email])
+                        """, [salutation, first_mid, last_name, cc, mobile, tgl_lahir, kewargaan, email])
 
-                        c.execute("""
-                            UPDATE member SET id_tier=%s WHERE email=%s
-                        """, [id_tier, email])
+                        c.execute("UPDATE member SET id_tier=%s WHERE email=%s", [id_tier, email])
 
                 messages.success(request, 'Data member berhasil diperbarui.')
                 return redirect('member_list_staf')
@@ -770,8 +723,6 @@ def member_edit(request, email):
         'error':     error,
     })
 
-
-# ── DELETE ────────────────────────────────────
 
 @login_required_staf
 def member_hapus(request, email):
@@ -795,8 +746,7 @@ def member_hapus(request, email):
         try:
             with transaction.atomic():
                 with connection.cursor() as c:
-                    # ON DELETE CASCADE sudah handle relasi child
-                    c.execute("DELETE FROM member  WHERE email = %s", [email])
+                    c.execute("DELETE FROM member WHERE email = %s", [email])
                     c.execute("DELETE FROM pengguna WHERE email = %s", [email])
             messages.success(request, f'Member {nomor_member} ({nama}) berhasil dihapus.')
         except Exception as e:
@@ -810,84 +760,22 @@ def member_hapus(request, email):
     })
 
 
-def get_hadiah_penyedia_options():
-    query = """
-        SELECT
-            mk.id_penyedia,
-            mk.nama_maskapai AS nama_penyedia,
-            'airline' AS tipe_penyedia
-        FROM maskapai mk
-
-        UNION ALL
-
-        SELECT
-            mt.id_penyedia,
-            mt.nama_mitra AS nama_penyedia,
-            'partner' AS tipe_penyedia
-        FROM mitra mt
-
-        ORDER BY tipe_penyedia, nama_penyedia
-    """
-
-    with connection.cursor() as cursor:
-        cursor.execute(query)
-        rows = cursor.fetchall()
-
-    return [{
-        'id': row[0],
-        'nama': row[1],
-        'tipe': row[2],
-        'label': f"{row[1]} ({'Airline' if row[2] == 'airline' else 'Partner'})",
-    } for row in rows]
-
-
-def generate_kode_hadiah():
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT kode_hadiah
-            FROM hadiah
-            WHERE kode_hadiah LIKE 'RWD-%'
-            ORDER BY kode_hadiah DESC
-            LIMIT 1
-        """)
-        row = cursor.fetchone()
-
-    if row:
-        try:
-            nomor = int(row[0].split('-')[-1]) + 1
-        except (ValueError, IndexError):
-            nomor = 1
-    else:
-        nomor = 1
-
-    return f"RWD-{nomor:03d}"
-
-
 @login_required_staf
 def hadiah_list(request):
-    search = request.GET.get('search', '').strip()
+    search        = request.GET.get('search', '').strip()
     provider_type = request.GET.get('provider_type', '').strip().lower()
 
     query = """
         SELECT
-            h.kode_hadiah,
-            h.nama,
-            h.deskripsi,
-            h.miles,
-            h.valid_start_date,
-            h.program_end,
-            h.id_penyedia,
+            h.kode_hadiah, h.nama, h.deskripsi, h.miles,
+            h.valid_start_date, h.program_end, h.id_penyedia,
             COALESCE(mk.nama_maskapai, mt.nama_mitra, 'Penyedia #' || h.id_penyedia::text) AS nama_penyedia,
             CASE
                 WHEN mk.id_penyedia IS NOT NULL THEN 'airline'
                 WHEN mt.id_penyedia IS NOT NULL THEN 'partner'
                 ELSE 'unknown'
             END AS tipe_penyedia,
-            EXISTS (
-                SELECT 1
-                FROM redeem r
-                WHERE r.kode_hadiah = h.kode_hadiah
-            ) AS pernah_redeem
+            EXISTS (SELECT 1 FROM redeem r WHERE r.kode_hadiah = h.kode_hadiah) AS pernah_redeem
         FROM hadiah h
         LEFT JOIN maskapai mk ON h.id_penyedia = mk.id_penyedia
         LEFT JOIN mitra mt ON h.id_penyedia = mt.id_penyedia
@@ -896,22 +784,14 @@ def hadiah_list(request):
     params = []
 
     if provider_type in ['airline', 'partner']:
-        if provider_type == 'airline':
-            query += " AND mk.id_penyedia IS NOT NULL"
-        else:
-            query += " AND mt.id_penyedia IS NOT NULL"
+        query += " AND mk.id_penyedia IS NOT NULL" if provider_type == 'airline' else " AND mt.id_penyedia IS NOT NULL"
     else:
         provider_type = ''
 
     if search:
-        query += """
-            AND (
-                h.nama ILIKE %s
-                OR COALESCE(mk.nama_maskapai, mt.nama_mitra, '') ILIKE %s
-            )
-        """
-        keyword = f"%{search}%"
-        params.extend([keyword, keyword])
+        query += " AND (h.nama ILIKE %s OR COALESCE(mk.nama_maskapai, mt.nama_mitra, '') ILIKE %s)"
+        kw = f"%{search}%"
+        params.extend([kw, kw])
 
     query += " ORDER BY h.nama ASC, h.valid_start_date DESC, h.kode_hadiah ASC"
 
@@ -920,30 +800,27 @@ def hadiah_list(request):
         rows = cursor.fetchall()
 
     today = timezone.localdate()
-    hadiah_list_data = []
-    for row in rows:
-        expired = row[5] < today if row[5] else False
-        hadiah_list_data.append({
-            'kode_hadiah': row[0],
-            'nama': row[1],
-            'deskripsi': row[2],
-            'miles': row[3],
-            'valid_start_date': row[4],
-            'program_end': row[5],
-            'id_penyedia': row[6],
-            'nama_penyedia': row[7],
-            'tipe_penyedia': row[8],
-            'pernah_redeem': row[9],
-            'can_delete': expired and not row[9],
-        })
+    hadiah_list_data = [{
+        'kode_hadiah':    row[0],
+        'nama':           row[1],
+        'deskripsi':      row[2],
+        'miles':          row[3],
+        'valid_start_date': row[4],
+        'program_end':    row[5],
+        'id_penyedia':    row[6],
+        'nama_penyedia':  row[7],
+        'tipe_penyedia':  row[8],
+        'pernah_redeem':  row[9],
+        'can_delete':     (row[5] < today) and not row[9],
+    } for row in rows]
 
     return render(request, 'staf/hadiah_list.html', {
-        'hadiah_list': hadiah_list_data,
-        'penyedia_options': get_hadiah_penyedia_options(),
-        'search': search,
-        'provider_type': provider_type,
+        'hadiah_list':           hadiah_list_data,
+        'penyedia_options':      get_hadiah_penyedia_options(),
+        'search':                search,
+        'provider_type':         provider_type,
         'generated_kode_hadiah': generate_kode_hadiah(),
-        'today': today,
+        'today':                 today,
     })
 
 
@@ -952,12 +829,12 @@ def hadiah_create(request):
     if request.method != 'POST':
         return redirect('hadiah_list')
 
-    nama = request.POST.get('nama', '').strip()
-    id_penyedia = request.POST.get('id_penyedia', '').strip()
-    miles = request.POST.get('miles', '').strip()
-    deskripsi = request.POST.get('deskripsi', '').strip()
+    nama             = request.POST.get('nama', '').strip()
+    id_penyedia      = request.POST.get('id_penyedia', '').strip()
+    miles            = request.POST.get('miles', '').strip()
+    deskripsi        = request.POST.get('deskripsi', '').strip()
     valid_start_date = request.POST.get('valid_start_date', '').strip()
-    program_end = request.POST.get('program_end', '').strip()
+    program_end      = request.POST.get('program_end', '').strip()
 
     if not all([nama, id_penyedia, miles, valid_start_date, program_end]):
         messages.error(request, 'Semua field wajib hadiah harus diisi.')
@@ -968,15 +845,13 @@ def hadiah_create(request):
         return redirect('hadiah_list')
 
     try:
-        with transaction.atomic():
-            kode_hadiah = generate_kode_hadiah()
-            with connection.cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO hadiah
+        kode_hadiah = generate_kode_hadiah()
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO hadiah
                     (kode_hadiah, nama, miles, deskripsi, valid_start_date, program_end, id_penyedia)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, [kode_hadiah, nama, miles, deskripsi or None, valid_start_date, program_end, id_penyedia])
-
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, [kode_hadiah, nama, miles, deskripsi or None, valid_start_date, program_end, id_penyedia])
         messages.success(request, f'Hadiah {kode_hadiah} berhasil ditambahkan.')
     except Exception as e:
         messages.error(request, f'Gagal menambahkan hadiah: {e}')
@@ -989,12 +864,12 @@ def hadiah_update(request, kode_hadiah):
     if request.method != 'POST':
         return redirect('hadiah_list')
 
-    nama = request.POST.get('nama', '').strip()
-    id_penyedia = request.POST.get('id_penyedia', '').strip()
-    miles = request.POST.get('miles', '').strip()
-    deskripsi = request.POST.get('deskripsi', '').strip()
+    nama             = request.POST.get('nama', '').strip()
+    id_penyedia      = request.POST.get('id_penyedia', '').strip()
+    miles            = request.POST.get('miles', '').strip()
+    deskripsi        = request.POST.get('deskripsi', '').strip()
     valid_start_date = request.POST.get('valid_start_date', '').strip()
-    program_end = request.POST.get('program_end', '').strip()
+    program_end      = request.POST.get('program_end', '').strip()
 
     if not all([nama, id_penyedia, miles, valid_start_date, program_end]):
         messages.error(request, 'Semua field wajib hadiah harus diisi.')
@@ -1007,14 +882,10 @@ def hadiah_update(request, kode_hadiah):
     try:
         with connection.cursor() as cursor:
             cursor.execute("""
-                UPDATE hadiah
-                SET nama = %s,
-                    miles = %s,
-                    deskripsi = %s,
-                    valid_start_date = %s,
-                    program_end = %s,
-                    id_penyedia = %s
-                WHERE kode_hadiah = %s
+                UPDATE hadiah SET
+                    nama=%s, miles=%s, deskripsi=%s,
+                    valid_start_date=%s, program_end=%s, id_penyedia=%s
+                WHERE kode_hadiah=%s
             """, [nama, miles, deskripsi or None, valid_start_date, program_end, id_penyedia, kode_hadiah])
 
             if cursor.rowcount == 0:
@@ -1035,11 +906,9 @@ def hadiah_delete(request, kode_hadiah):
     try:
         with connection.cursor() as cursor:
             cursor.execute("""
-                SELECT
-                    program_end,
-                    EXISTS (SELECT 1 FROM redeem WHERE kode_hadiah = %s) AS pernah_redeem
-                FROM hadiah
-                WHERE kode_hadiah = %s
+                SELECT program_end,
+                       EXISTS (SELECT 1 FROM redeem WHERE kode_hadiah = %s) AS pernah_redeem
+                FROM hadiah WHERE kode_hadiah = %s
             """, [kode_hadiah, kode_hadiah])
             row = cursor.fetchone()
 
@@ -1052,7 +921,7 @@ def hadiah_delete(request, kode_hadiah):
                 return redirect('hadiah_list')
 
             if row[1]:
-                messages.error(request, 'Hadiah yang pernah diredeem tidak dapat dihapus agar riwayat tetap aman.')
+                messages.error(request, 'Hadiah yang pernah diredeem tidak dapat dihapus.')
                 return redirect('hadiah_list')
 
             cursor.execute("DELETE FROM hadiah WHERE kode_hadiah = %s", [kode_hadiah])
@@ -1062,108 +931,100 @@ def hadiah_delete(request, kode_hadiah):
 
     return redirect('hadiah_list')
 
-# READ
+
+@login_required_staf
 def mitra_list(request):
     search = request.GET.get('search', '').strip()
-    sort = request.GET.get('sort', 'nama_asc')
+    sort   = request.GET.get('sort', 'nama_asc')
 
     order_by_map = {
-        'nama_asc': 'nama_mitra ASC',
-        'nama_desc': 'nama_mitra DESC',
-        'tanggal_asc': 'tanggal_kerja_sama ASC',
+        'nama_asc':     'nama_mitra ASC',
+        'nama_desc':    'nama_mitra DESC',
+        'tanggal_asc':  'tanggal_kerja_sama ASC',
         'tanggal_desc': 'tanggal_kerja_sama DESC',
     }
     order_by = order_by_map.get(sort, order_by_map['nama_asc'])
 
+    query  = f"SELECT email_mitra, nama_mitra, tanggal_kerja_sama FROM mitra"
+    params = []
+
+    if search:
+        query += " WHERE nama_mitra ILIKE %s"
+        params.append(f"%{search}%")
+
+    query += f" ORDER BY {order_by}"
+
     with connection.cursor() as cursor:
-        query = f"""
-            SELECT email_mitra, nama_mitra, tanggal_kerja_sama
-            FROM mitra
-        """
-        params = []
-
-        if search:
-            query += " WHERE nama_mitra ILIKE %s"
-            params.append(f"%{search}%")
-
-        query += f" ORDER BY {order_by}"
-
         cursor.execute(query, params)
         rows = cursor.fetchall()
 
-    mitras = []
-    for row in rows:
-        mitras.append({
-            'email': row[0],
-            'nama': row[1],
-            'tanggal': row[2],
-        })
-
     return render(request, 'staf/mitra_list.html', {
-        'mitras': mitras,
+        'mitras': [{'email': r[0], 'nama': r[1], 'tanggal': r[2]} for r in rows],
         'search': search,
-        'sort': sort,
+        'sort':   sort,
     })
 
 
-# CREATE (WAJIB INSERT PENYEDIA DULU)
+@login_required_staf
 def mitra_create(request):
     if request.method == 'POST':
-        email = request.POST['email']
-        nama = request.POST['nama']
+        email   = request.POST['email']
+        nama    = request.POST['nama']
         tanggal = request.POST['tanggal']
 
-        with transaction.atomic():
-            with connection.cursor() as cursor:
-                # Sinkronkan sequence SERIAL dengan data existing setelah import dump.
-                cursor.execute("""
-                    SELECT setval(
-                        pg_get_serial_sequence('penyedia', 'id'),
-                        COALESCE((SELECT MAX(id) FROM penyedia), 1),
-                        (SELECT COUNT(*) > 0 FROM penyedia)
-                    )
-                """)
+        try:
+            with transaction.atomic():
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT setval(
+                            pg_get_serial_sequence('penyedia', 'id'),
+                            COALESCE((SELECT MAX(id) FROM penyedia), 1),
+                            (SELECT COUNT(*) > 0 FROM penyedia)
+                        )
+                    """)
+                    cursor.execute("INSERT INTO penyedia DEFAULT VALUES RETURNING id")
+                    id_penyedia = cursor.fetchone()[0]
 
-                cursor.execute("""
-                    INSERT INTO penyedia DEFAULT VALUES RETURNING id
-                """)
-                id_penyedia = cursor.fetchone()[0]
-
-                cursor.execute("""
-                    INSERT INTO mitra
-                    (email_mitra, id_penyedia, nama_mitra, tanggal_kerja_sama)
-                    VALUES (%s, %s, %s, %s)
-                """, [email, id_penyedia, nama, tanggal])
+                    cursor.execute("""
+                        INSERT INTO mitra (email_mitra, id_penyedia, nama_mitra, tanggal_kerja_sama)
+                        VALUES (%s, %s, %s, %s)
+                    """, [email, id_penyedia, nama, tanggal])
+            messages.success(request, f'Mitra {nama} berhasil ditambahkan.')
+        except Exception as e:
+            messages.error(request, f'Gagal menambahkan mitra: {e}')
 
     return redirect('mitra_list')
 
 
-# UPDATE
+@login_required_staf
 def mitra_update(request, email):
     if request.method == 'POST':
-        nama = request.POST['nama']
+        nama    = request.POST['nama']
         tanggal = request.POST['tanggal']
 
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                UPDATE mitra
-                SET nama_mitra=%s, tanggal_kerja_sama=%s
-                WHERE email_mitra=%s
-            """, [nama, tanggal, email])
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    UPDATE mitra SET nama_mitra=%s, tanggal_kerja_sama=%s
+                    WHERE email_mitra=%s
+                """, [nama, tanggal, email])
+            messages.success(request, 'Mitra berhasil diperbarui.')
+        except Exception as e:
+            messages.error(request, f'Gagal memperbarui mitra: {e}')
 
     return redirect('mitra_list')
 
 
-# DELETE (LEWAT PENYEDIA)
+@login_required_staf
 def mitra_delete(request, email):
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            DELETE FROM penyedia
-            WHERE id = (
-                SELECT id_penyedia
-                FROM mitra
-                WHERE email_mitra=%s
-            )
-        """, [email])
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                DELETE FROM penyedia
+                WHERE id = (SELECT id_penyedia FROM mitra WHERE email_mitra=%s)
+            """, [email])
+        messages.success(request, 'Mitra berhasil dihapus.')
+    except Exception as e:
+        messages.error(request, f'Gagal menghapus mitra: {e}')
 
     return redirect('mitra_list')
