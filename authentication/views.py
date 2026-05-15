@@ -3,21 +3,28 @@ from django.db import connection
 from django.contrib import messages
 from django.contrib.auth.hashers import make_password, check_password
 
+
+def extract_db_error(e):
+    """Ambil hanya pesan utama dari exception psycopg2, tanpa CONTEXT/stack trace."""
+    if hasattr(e, 'diag') and e.diag.message_primary:
+        return e.diag.message_primary
+    return str(e).split('\n')[0]
+
+
 def register_view(request):
-    # Selalu ambil maskapai_list untuk dropdown staf
     with connection.cursor() as cursor:
         cursor.execute("SELECT kode_maskapai, nama_maskapai FROM maskapai ORDER BY nama_maskapai")
         maskapai_list = [{'kode_maskapai': r[0], 'nama_maskapai': r[1]} for r in cursor.fetchall()]
 
     if request.method == "POST":
-        data = request.POST
-        email           = data.get('email')
-        password        = data.get('password')
+        data             = request.POST
+        email            = data.get('email')
+        password         = data.get('password')
         confirm_password = data.get('confirm_password')
 
         if password != confirm_password:
             return render(request, 'authentication/register.html', {
-                'error': 'Password tidak cocok',
+                'error': 'Password tidak cocok.',
                 'maskapai_list': maskapai_list
             })
 
@@ -25,15 +32,6 @@ def register_view(request):
 
         try:
             with connection.cursor() as cursor:
-                # Cek duplikat email
-                cursor.execute("SELECT email FROM pengguna WHERE email = %s", [email])
-                if cursor.fetchone():
-                    return render(request, 'authentication/register.html', {
-                        'error': 'Email sudah terdaftar.',
-                        'maskapai_list': maskapai_list
-                    })
-
-                # Insert PENGGUNA
                 cursor.execute("""
                     INSERT INTO pengguna (email, password, salutation, first_mid_name, last_name,
                     country_code, mobile_number, tanggal_lahir, kewarganegaraan)
@@ -41,27 +39,26 @@ def register_view(request):
                 """, [
                     email, hashed_pw,
                     data.get('salutation'),
-                    data.get('first_mid_name'),   
+                    data.get('first_mid_name'),
                     data.get('last_name'),
                     data.get('country_code'),
-                    data.get('mobile_number'),    
-                    data.get('tanggal_lahir'),   
-                    data.get('kewarganegaraan')
+                    data.get('mobile_number'),
+                    data.get('tanggal_lahir'),
+                    data.get('kewarganegaraan'),
                 ])
 
                 role = data.get('role')
                 if role == 'member':
                     with connection.cursor() as c1:
                         c1.execute("SELECT nomor_member FROM member ORDER BY nomor_member DESC LIMIT 1")
-                        last = c1.fetchone()
+                        last     = c1.fetchone()
                         next_num = int(last[0][1:]) + 1 if last else 1
                         nomor_member = f"M{next_num:04d}"
+
                     with connection.cursor() as c2:
                         c2.execute("SELECT id_tier FROM tier ORDER BY minimal_tier_miles ASC LIMIT 1")
                         tier_row = c2.fetchone()
-                        id_tier = tier_row[0] if tier_row else None
-
-                    print(f"DEBUG: email={email}, nomor={nomor_member}, tier={id_tier}") #buat debugging
+                        id_tier  = tier_row[0] if tier_row else None
 
                     with connection.cursor() as c3:
                         c3.execute("""
@@ -72,9 +69,9 @@ def register_view(request):
                 else:  # staf
                     with connection.cursor() as c1:
                         c1.execute("SELECT id_staf FROM staf ORDER BY id_staf DESC LIMIT 1")
-                        last = c1.fetchone()
+                        last     = c1.fetchone()
                         next_num = int(last[0][1:]) + 1 if last else 1
-                        id_staf = f"S{next_num:04d}"
+                        id_staf  = f"S{next_num:04d}"
 
                     with connection.cursor() as c2:
                         c2.execute("""
@@ -87,7 +84,7 @@ def register_view(request):
 
         except Exception as e:
             return render(request, 'authentication/register.html', {
-                'error': f"Gagal mendaftar: {e}",
+                'error': extract_db_error(e),
                 'maskapai_list': maskapai_list
             })
 
@@ -109,12 +106,12 @@ def login_view(request):
                 role = 'member' if cursor.fetchone() else 'staf'
 
             request.session['user_email'] = email
-            request.session['role'] = role
+            request.session['role']       = role
             return redirect('dashboard')
         else:
             return render(request, 'authentication/login.html', {
                 'error': 'Email atau password salah.',
-                'email': email
+                'email': email,
             })
 
     return render(request, 'authentication/login.html')
