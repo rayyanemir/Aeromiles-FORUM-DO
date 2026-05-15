@@ -550,19 +550,19 @@ def redeem_buat(request, kode_hadiah):
     hadiah['sisa_setelah_redeem'] = member_info['award_miles'] - hadiah['miles']
  
     if request.method == 'POST':
-        try:
-            with connection.cursor() as c:
-                c.execute("""
-                    INSERT INTO redeem (email_member, kode_hadiah, timestamp)
-                    VALUES (%s, %s, NOW())
-                """, [email, kode_hadiah])
-            messages.success(request, f"Redeem hadiah '{hadiah['nama']}' berhasil diproses.")
-            return redirect('redeem_list')
-        except Exception as e:
-            err_msg = str(e)
-            if 'ERROR:' in err_msg:
-                err_msg = err_msg.split('ERROR:')[-1].strip()
-            messages.error(request, err_msg)
+            try:
+                with connection.cursor() as c:
+                    c.execute("""
+                        INSERT INTO redeem (email_member, kode_hadiah, timestamp)
+                        VALUES (%s, %s, NOW())
+                    """, [email, kode_hadiah])
+                messages.success(request, f"SUKSES: Redeem hadiah \"{hadiah['nama']}\" berhasil. Award miles Anda berkurang {hadiah['miles']} miles.")
+                return redirect('redeem_list')
+            except Exception as e:
+                err_msg = str(e)
+                if 'ERROR:' in err_msg:
+                    err_msg = err_msg.split('ERROR:')[-1].strip()
+                messages.error(request, err_msg)
  
     return render(request, 'member/redeem_form.html', {
         'member_info': member_info,
@@ -718,7 +718,7 @@ def transfer_buat(request):
                                         (email_member_1, email_member_2, timestamp, jumlah, catatan)
                                     VALUES (%s, %s, NOW(), %s, %s)
                                 """, [email, email_penerima, jumlah, catatan or None])
-                            messages.success(request, f'Transfer {jumlah} miles berhasil!')
+                            messages.success(request, f'SUKSES: Transfer {jumlah} miles dari "{email}" ke "{email_penerima}" berhasil dicatat.')
                             return redirect('transfer_list')
                         except Exception as e:
                             err_msg = str(e)

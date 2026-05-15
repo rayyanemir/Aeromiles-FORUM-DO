@@ -57,7 +57,6 @@ def dashboard_view(request):
             'tier':              m[4],
         }
 
-        # Riwayat 5 transaksi terbaru (gabungan transfer + redeem + package + klaim)
         with connection.cursor() as c:
             c.execute("""
                 SELECT 'Transfer Keluar' AS tipe, t.timestamp, t.jumlah, p.first_mid_name || ' ' || p.last_name AS keterangan
@@ -90,7 +89,7 @@ def dashboard_view(request):
 
                 UNION ALL
 
-                SELECT 'Klaim Miles', cm.timestamp, 0, mk.nama_maskapai || ' ' || cm.flight_number
+                SELECT 'Klaim Miles', cm.timestamp, 1000, mk.nama_maskapai || ' ' || cm.flight_number
                 FROM claim_missing_miles cm
                 JOIN maskapai mk ON cm.maskapai = mk.kode_maskapai
                 WHERE cm.email_member = %s AND cm.status_penerimaan = 'Disetujui'
@@ -118,12 +117,10 @@ def dashboard_view(request):
             'nama_maskapai': s[1],
         }
 
-        # Jumlah klaim menunggu (semua staf)
         with connection.cursor() as c:
             c.execute("SELECT COUNT(*) FROM claim_missing_miles WHERE status_penerimaan = 'Menunggu'")
             context['total_menunggu'] = c.fetchone()[0]
 
-        # Ringkasan klaim milik staf ini
         with connection.cursor() as c:
             c.execute("""
                 SELECT
