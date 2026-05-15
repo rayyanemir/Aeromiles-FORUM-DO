@@ -369,7 +369,6 @@
                     <div class="reward-actions">
                         {% if hadiah.status == 'tersedia' and member_info.award_miles >= hadiah.miles %}
                             <a href="{% url 'redeem_buat' hadiah.kode_hadiah %}" class="btn btn-primary">Redeem Sekarang</a>
-                            <div class="action-note">Saldo anda tidak cukup</div>
                         {% elif hadiah.status == 'tersedia' %}
                             <span class="btn btn-disabled">Miles Belum Cukup</span>
                             <div class="action-note">Kurang {{ hadiah.selisih_miles }} miles.</div>
